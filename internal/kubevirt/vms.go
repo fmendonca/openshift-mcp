@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	contextx "github.com/fmendonca/openshfit-mcp/internal/context"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,7 +14,8 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-func RegisterKubeVirtTools(s *server.MCPServer, ctx *mcpserver.ServerContext) {
+// Registra tools específicas de KubeVirt
+func RegisterKubeVirtTools(s *server.MCPServer, ctx *contextx.ServerContext) {
 	registerVMsListTool(s, ctx)
 	registerVMStartTool(s, ctx)
 	registerVMStopTool(s, ctx)
@@ -26,7 +28,7 @@ type VMsListInput struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-func registerVMsListTool(s *server.MCPServer, ctx *mcpserver.ServerContext) {
+func registerVMsListTool(s *server.MCPServer, ctx *contextx.ServerContext) {
 	tool := mcp.NewTool(
 		"kubevirt_vms_list",
 		mcp.WithDescription("Lista VirtualMachines do KubeVirt (kubevirt.io/v1, resource 'virtualmachines')."),
@@ -58,11 +60,11 @@ func registerVMsListTool(s *server.MCPServer, ctx *mcpserver.ServerContext) {
 		}
 
 		b, _ := vms.MarshalJSON()
-		return mcpserver.TextResult(string(b)), nil
+		return mcp.NewToolResultText(string(b)), nil
 	})
 }
 
-// ---------- VM start/stop/restart via runStrategy ----------
+// ---------- VM start/stop/restart ----------
 
 type VMActionInput struct {
 	Namespace string `json:"namespace"`
@@ -74,11 +76,10 @@ func vmGVR() schema.GroupVersionResource {
 		Group:    "kubevirt.io",
 		Version:  "v1",
 		Resource: "virtualmachines",
-	} // VirtualMachine CRD[web:45][web:51]
+	}
 }
 
-// Start: define runStrategy = "Always" (ou running=true, dependendo da sua política)
-func registerVMStartTool(s *server.MCPServer, ctx *mcpserver.ServerContext) {
+func registerVMStartTool(s *server.MCPServer, ctx *contextx.ServerContext) {
 	tool := mcp.NewTool(
 		"kubevirt_vm_start",
 		mcp.WithDescription("Inicia uma VirtualMachine do KubeVirt ajustando runStrategy para 'Always'."),
@@ -92,7 +93,7 @@ func registerVMStartTool(s *server.MCPServer, ctx *mcpserver.ServerContext) {
 			return mcp.NewToolResultError("falha ao decodificar argumentos"), nil
 		}
 
-		patch := []byte(`{"spec":{"runStrategy":"Always"}}`) // liga a VM[web:95][web:99]
+		patch := []byte(`{"spec":{"runStrategy":"Always"}}`)
 
 		ri := ctx.DynClient.Resource(vmGVR()).Namespace(in.Namespace)
 		_, err := ri.Patch(c, in.Name, types.MergePatchType, patch, metav1.PatchOptions{})
@@ -100,12 +101,11 @@ func registerVMStartTool(s *server.MCPServer, ctx *mcpserver.ServerContext) {
 			return mcp.NewToolResultErrorFromErr("erro ao iniciar VM", err), nil
 		}
 
-		return mcpserver.TextResult(fmt.Sprintf("VM %s/%s iniciada (runStrategy=Always)", in.Namespace, in.Name)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("VM %s/%s iniciada (runStrategy=Always)", in.Namespace, in.Name)), nil
 	})
 }
 
-// Stop: define runStrategy = "Halted"
-func registerVMStopTool(s *server.MCPServer, ctx *mcpserver.ServerContext) {
+func registerVMStopTool(s *server.MCPServer, ctx *contextx.ServerContext) {
 	tool := mcp.NewTool(
 		"kubevirt_vm_stop",
 		mcp.WithDescription("Desliga uma VirtualMachine do KubeVirt ajustando runStrategy para 'Halted'."),
@@ -119,7 +119,7 @@ func registerVMStopTool(s *server.MCPServer, ctx *mcpserver.ServerContext) {
 			return mcp.NewToolResultError("falha ao decodificar argumentos"), nil
 		}
 
-		patch := []byte(`{"spec":{"runStrategy":"Halted"}}`) // desliga a VM[web:95][web:103]
+		patch := []byte(`{"spec":{"runStrategy":"Halted"}}`)
 
 		ri := ctx.DynClient.Resource(vmGVR()).Namespace(in.Namespace)
 		_, err := ri.Patch(c, in.Name, types.MergePatchType, patch, metav1.PatchOptions{})
@@ -127,12 +127,11 @@ func registerVMStopTool(s *server.MCPServer, ctx *mcpserver.ServerContext) {
 			return mcp.NewToolResultErrorFromErr("erro ao parar VM", err), nil
 		}
 
-		return mcpserver.TextResult(fmt.Sprintf("VM %s/%s parada (runStrategy=Halted)", in.Namespace, in.Name)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("VM %s/%s parada (runStrategy=Halted)", in.Namespace, in.Name)), nil
 	})
 }
 
-// Restart: adiciona um stateChangeRequest restart, conforme comportamento do virtctl/manual[web:99][web:103]
-func registerVMRestartTool(s *server.MCPServer, ctx *mcpserver.ServerContext) {
+func registerVMRestartTool(s *server.MCPServer, ctx *contextx.ServerContext) {
 	tool := mcp.NewTool(
 		"kubevirt_vm_restart",
 		mcp.WithDescription("Reinicia uma VirtualMachine do KubeVirt adicionando um stateChangeRequest 'Restart'."),
@@ -146,8 +145,7 @@ func registerVMRestartTool(s *server.MCPServer, ctx *mcpserver.ServerContext) {
 			return mcp.NewToolResultError("falha ao decodificar argumentos"), nil
 		}
 
-		// Padrão de restart: adicionar StateChangeRequest "Restart"
-		patch := []byte(`{"spec":{"runStrategy":"Always","stateChangeRequests":[{"action":"Restart"}]}}`) // ilustra comportamento restart[web:99]
+		patch := []byte(`{"spec":{"runStrategy":"Always","stateChangeRequests":[{"action":"Restart"}]}}`)
 
 		ri := ctx.DynClient.Resource(vmGVR()).Namespace(in.Namespace)
 		_, err := ri.Patch(c, in.Name, types.MergePatchType, patch, metav1.PatchOptions{})
@@ -155,6 +153,6 @@ func registerVMRestartTool(s *server.MCPServer, ctx *mcpserver.ServerContext) {
 			return mcp.NewToolResultErrorFromErr("erro ao reiniciar VM", err), nil
 		}
 
-		return mcpserver.TextResult(fmt.Sprintf("VM %s/%s reiniciada (stateChangeRequests=Restart)", in.Namespace, in.Name)), nil
+		return mcp.NewToolResultText(fmt.Sprintf("VM %s/%s reiniciada (stateChangeRequests=Restart)", in.Namespace, in.Name)), nil
 	})
 }

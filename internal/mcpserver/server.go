@@ -22,7 +22,9 @@ func NewServer(name, version string, kube *kubernetes.Clientset, dyn dynamic.Int
 		DynClient:  dyn,
 	}
 
+	// tools genéricas
 	RegisterCoreTools(s, ctx)
+	// toolsets específicos
 	openshift.RegisterOpenShiftTools(s, ctx)
 	kubevirt.RegisterKubeVirtTools(s, ctx)
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	contextx "github.com/fmendonca/openshfit-mcp/internal/context"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,7 +16,7 @@ import (
 )
 
 // Registra todas as tools específicas de OpenShift
-func RegisterOpenShiftTools(s *server.MCPServer, ctx *mcpserver.ServerContext) {
+func RegisterOpenShiftTools(s *server.MCPServer, ctx *contextx.ServerContext) {
 	registerRoutesListTool(s, ctx)
 	registerBuildConfigsListTool(s, ctx)
 	registerImageStreamsListTool(s, ctx)
@@ -34,7 +35,7 @@ type RoutesListInput struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-func registerRoutesListTool(s *server.MCPServer, ctx *mcpserver.ServerContext) {
+func registerRoutesListTool(s *server.MCPServer, ctx *contextx.ServerContext) {
 	tool := mcp.NewTool(
 		"routes_list",
 		mcp.WithDescription("Lista Routes do OpenShift (route.openshift.io/v1, resource 'routes')."),
@@ -66,7 +67,7 @@ func registerRoutesListTool(s *server.MCPServer, ctx *mcpserver.ServerContext) {
 		}
 
 		b, _ := routes.MarshalJSON()
-		return mcpserver.TextResult(string(b)), nil
+		return mcp.NewToolResultText(string(b)), nil
 	})
 }
 
@@ -76,7 +77,7 @@ type BuildConfigsListInput struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-func registerBuildConfigsListTool(s *server.MCPServer, ctx *mcpserver.ServerContext) {
+func registerBuildConfigsListTool(s *server.MCPServer, ctx *contextx.ServerContext) {
 	tool := mcp.NewTool(
 		"buildconfigs_list",
 		mcp.WithDescription("Lista BuildConfigs (build.openshift.io/v1, resource 'buildconfigs')."),
@@ -108,7 +109,7 @@ func registerBuildConfigsListTool(s *server.MCPServer, ctx *mcpserver.ServerCont
 		}
 
 		b, _ := bcs.MarshalJSON()
-		return mcpserver.TextResult(string(b)), nil
+		return mcp.NewToolResultText(string(b)), nil
 	})
 }
 
@@ -118,7 +119,7 @@ type ImageStreamsListInput struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-func registerImageStreamsListTool(s *server.MCPServer, ctx *mcpserver.ServerContext) {
+func registerImageStreamsListTool(s *server.MCPServer, ctx *contextx.ServerContext) {
 	tool := mcp.NewTool(
 		"imagestreams_list",
 		mcp.WithDescription("Lista ImageStreams (image.openshift.io/v1, resource 'imagestreams')."),
@@ -150,7 +151,7 @@ func registerImageStreamsListTool(s *server.MCPServer, ctx *mcpserver.ServerCont
 		}
 
 		b, _ := iss.MarshalJSON()
-		return mcpserver.TextResult(string(b)), nil
+		return mcp.NewToolResultText(string(b)), nil
 	})
 }
 
@@ -158,7 +159,7 @@ func registerImageStreamsListTool(s *server.MCPServer, ctx *mcpserver.ServerCont
 
 type ProjectsListInput struct{}
 
-func registerProjectsListTool(s *server.MCPServer, ctx *mcpserver.ServerContext) {
+func registerProjectsListTool(s *server.MCPServer, ctx *contextx.ServerContext) {
 	tool := mcp.NewTool(
 		"projects_list",
 		mcp.WithDescription("Lista Projects (project.openshift.io/v1, resource 'projects')."),
@@ -179,7 +180,7 @@ func registerProjectsListTool(s *server.MCPServer, ctx *mcpserver.ServerContext)
 		}
 
 		b, _ := projects.MarshalJSON()
-		return mcpserver.TextResult(string(b)), nil
+		return mcp.NewToolResultText(string(b)), nil
 	})
 }
 
@@ -189,7 +190,7 @@ type DeploymentConfigsListInput struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-func registerDeploymentConfigsListTool(s *server.MCPServer, ctx *mcpserver.ServerContext) {
+func registerDeploymentConfigsListTool(s *server.MCPServer, ctx *contextx.ServerContext) {
 	tool := mcp.NewTool(
 		"deploymentconfigs_list",
 		mcp.WithDescription("Lista DeploymentConfigs (apps.openshift.io/v1, resource 'deploymentconfigs')."),
@@ -221,7 +222,7 @@ func registerDeploymentConfigsListTool(s *server.MCPServer, ctx *mcpserver.Serve
 		}
 
 		b, _ := dcs.MarshalJSON()
-		return mcpserver.TextResult(string(b)), nil
+		return mcp.NewToolResultText(string(b)), nil
 	})
 }
 
@@ -229,10 +230,10 @@ func registerDeploymentConfigsListTool(s *server.MCPServer, ctx *mcpserver.Serve
 
 type BuildConfigStartBuildInput struct {
 	Namespace string `json:"namespace"`
-	Name      string `json:"name"` // nome do BuildConfig
+	Name      string `json:"name"`
 }
 
-func registerBuildConfigStartBuildTool(s *server.MCPServer, ctx *mcpserver.ServerContext) {
+func registerBuildConfigStartBuildTool(s *server.MCPServer, ctx *contextx.ServerContext) {
 	tool := mcp.NewTool(
 		"buildconfig_start_build",
 		mcp.WithDescription("Dispara um build a partir de um BuildConfig (equivalente a 'oc start-build')."),
@@ -246,14 +247,12 @@ func registerBuildConfigStartBuildTool(s *server.MCPServer, ctx *mcpserver.Serve
 			return mcp.NewToolResultError("falha ao decodificar argumentos"), nil
 		}
 
-		// BuildConfig GVR
 		bcGVR := schema.GroupVersionResource{
 			Group:    "build.openshift.io",
 			Version:  "v1",
 			Resource: "buildconfigs",
 		}
 
-		// 1) pega o BuildConfig
 		bc, err := ctx.DynClient.Resource(bcGVR).Namespace(in.Namespace).Get(c, in.Name, metav1.GetOptions{})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("erro ao obter BuildConfig", err), nil
@@ -264,7 +263,6 @@ func registerBuildConfigStartBuildTool(s *server.MCPServer, ctx *mcpserver.Serve
 			return mcp.NewToolResultError("BuildConfig sem spec válido"), nil
 		}
 
-		// 2) monta um Build baseado no BuildConfig (estilo oc start-build)
 		build := map[string]interface{}{
 			"apiVersion": "build.openshift.io/v1",
 			"kind":       "Build",
@@ -281,7 +279,6 @@ func registerBuildConfigStartBuildTool(s *server.MCPServer, ctx *mcpserver.Serve
 				"output":   spec["output"],
 			},
 		}
-		// serviceAccount é opcional; só coloca se existir
 		if sa, exists := spec["serviceAccount"]; exists {
 			build["spec"].(map[string]interface{})["serviceAccount"] = sa
 		}
@@ -302,7 +299,7 @@ func registerBuildConfigStartBuildTool(s *server.MCPServer, ctx *mcpserver.Serve
 		}
 
 		b, _ := created.MarshalJSON()
-		return mcpserver.TextResult(string(b)), nil
+		return mcp.NewToolResultText(string(b)), nil
 	})
 }
 
@@ -313,7 +310,7 @@ type DeploymentConfigRolloutInput struct {
 	Name      string `json:"name"`
 }
 
-func registerDeploymentConfigRolloutTool(s *server.MCPServer, ctx *mcpserver.ServerContext) {
+func registerDeploymentConfigRolloutTool(s *server.MCPServer, ctx *contextx.ServerContext) {
 	tool := mcp.NewTool(
 		"deploymentconfig_rollout_latest",
 		mcp.WithDescription("Dispara um rollout manual da DeploymentConfig (equivalente a 'oc rollout latest')."),
@@ -354,7 +351,7 @@ func registerDeploymentConfigRolloutTool(s *server.MCPServer, ctx *mcpserver.Ser
 		}
 
 		b, _ := updated.MarshalJSON()
-		return mcpserver.TextResult(string(b)), nil
+		return mcp.NewToolResultText(string(b)), nil
 	})
 }
 
@@ -363,12 +360,12 @@ func registerDeploymentConfigRolloutTool(s *server.MCPServer, ctx *mcpserver.Ser
 type ImageStreamPromoteTagInput struct {
 	Namespace    string `json:"namespace"`
 	ImageStream  string `json:"imageStream"`
-	SourceTag    string `json:"sourceTag"`    // ex: "dev"
-	TargetTag    string `json:"targetTag"`    // ex: "prod"
-	TargetIsCopy bool   `json:"targetIsCopy"` // se true, copia a imagem atual; se false, referencia a mesma fonte
+	SourceTag    string `json:"sourceTag"`
+	TargetTag    string `json:"targetTag"`
+	TargetIsCopy bool   `json:"targetIsCopy"`
 }
 
-func registerImageStreamPromoteTagTool(s *server.MCPServer, ctx *mcpserver.ServerContext) {
+func registerImageStreamPromoteTagTool(s *server.MCPServer, ctx *contextx.ServerContext) {
 	tool := mcp.NewTool(
 		"imagestream_promote_tag",
 		mcp.WithDescription("Promove uma tag de ImageStream (ex: 'app:dev' -> 'app:prod') usando ImageStreamTag."),
@@ -396,13 +393,11 @@ func registerImageStreamPromoteTagTool(s *server.MCPServer, ctx *mcpserver.Serve
 
 		ri := ctx.DynClient.Resource(istGVR).Namespace(in.Namespace)
 
-		// 1) lê o ImageStreamTag de origem
 		src, err := ri.Get(c, srcName, metav1.GetOptions{})
 		if err != nil {
 			return mcp.NewToolResultErrorFromErr("erro ao obter ImageStreamTag de origem", err), nil
 		}
 
-		// 2) prepara o objeto de destino
 		obj := map[string]interface{}{
 			"apiVersion": "image.openshift.io/v1",
 			"kind":       "ImageStreamTag",
@@ -435,7 +430,6 @@ func registerImageStreamPromoteTagTool(s *server.MCPServer, ctx *mcpserver.Serve
 			}
 		}
 
-		// 3) cria ou substitui o ImageStreamTag de destino
 		dst, err := ri.Get(c, dstName, metav1.GetOptions{})
 		if err == nil {
 			obj["metadata"].(map[string]interface{})["resourceVersion"] = dst.GetResourceVersion()
@@ -444,7 +438,7 @@ func registerImageStreamPromoteTagTool(s *server.MCPServer, ctx *mcpserver.Serve
 				return mcp.NewToolResultErrorFromErr("erro ao atualizar ImageStreamTag de destino", err), nil
 			}
 			b, _ := updated.MarshalJSON()
-			return mcpserver.TextResult(string(b)), nil
+			return mcp.NewToolResultText(string(b)), nil
 		}
 
 		created, err := ri.Create(c, &unstructured.Unstructured{Object: obj}, metav1.CreateOptions{})
@@ -453,6 +447,6 @@ func registerImageStreamPromoteTagTool(s *server.MCPServer, ctx *mcpserver.Serve
 		}
 
 		b, _ := created.MarshalJSON()
-		return mcpserver.TextResult(string(b)), nil
+		return mcp.NewToolResultText(string(b)), nil
 	})
 }
