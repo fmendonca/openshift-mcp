@@ -1,6 +1,7 @@
 package mcpserver
 
 import (
+	contextx "github.com/fmendonca/openshfit-mcp/internal/context"
 	"github.com/fmendonca/openshfit-mcp/internal/kubevirt"
 	"github.com/fmendonca/openshfit-mcp/internal/openshift"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -9,11 +10,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-type ServerContext struct {
-	KubeClient *kubernetes.Clientset
-	DynClient  dynamic.Interface
-}
-
 func NewServer(name, version string, kube *kubernetes.Clientset, dyn dynamic.Interface) *server.MCPServer {
 	s := server.NewMCPServer(
 		name,
@@ -21,7 +17,7 @@ func NewServer(name, version string, kube *kubernetes.Clientset, dyn dynamic.Int
 		server.WithToolCapabilities(false),
 	)
 
-	ctx := &ServerContext{
+	ctx := &contextx.ServerContext{
 		KubeClient: kube,
 		DynClient:  dyn,
 	}

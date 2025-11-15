@@ -3,8 +3,8 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
+	contextx "github.com/fmendonca/openshfit-mcp/internal/context"
 	"github.com/fmendonca/openshfit-mcp/internal/k8s"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -14,7 +14,7 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-func RegisterCoreTools(s *server.MCPServer, ctx *ServerContext) {
+func RegisterCoreTools(s *server.MCPServer, ctx *contextx.ServerContext) {
 	registerApisListTool(s, ctx)
 	registerResourcesListTool(s, ctx)
 	registerResourcesGetTool(s, ctx)
@@ -22,7 +22,7 @@ func RegisterCoreTools(s *server.MCPServer, ctx *ServerContext) {
 	registerResourcesDeleteTool(s, ctx)
 }
 
-func registerApisListTool(s *server.MCPServer, ctx *ServerContext) {
+func registerApisListTool(s *server.MCPServer, ctx *contextx.ServerContext) {
 	tool := mcp.NewTool(
 		"apis_list",
 		mcp.WithDescription("Lista todos os API groups/versions/resources disponíveis (inclui OpenShift e KubeVirt)."),
@@ -47,7 +47,7 @@ type ResourcesListInput struct {
 	Limit         int64  `json:"limit,omitempty"`
 }
 
-func registerResourcesListTool(s *server.MCPServer, ctx *ServerContext) {
+func registerResourcesListTool(s *server.MCPServer, ctx *contextx.ServerContext) {
 	tool := mcp.NewTool(
 		"resources_list",
 		mcp.WithDescription("Lista qualquer recurso Kubernetes/OpenShift/KubeVirt por GVR (group/version/resource)."),
@@ -109,7 +109,7 @@ type ResourcesGetInput struct {
 	Name      string `json:"name"`
 }
 
-func registerResourcesGetTool(s *server.MCPServer, ctx *ServerContext) {
+func registerResourcesGetTool(s *server.MCPServer, ctx *contextx.ServerContext) {
 	tool := mcp.NewTool(
 		"resources_get",
 		mcp.WithDescription("Obtém um recurso específico por Group/Version/Resource, namespace e nome."),
@@ -157,7 +157,7 @@ type ResourcesApplyInput struct {
 	Object map[string]interface{} `json:"object"`
 }
 
-func registerResourcesApplyTool(s *server.MCPServer, ctx *ServerContext) {
+func registerResourcesApplyTool(s *server.MCPServer, ctx *contextx.ServerContext) {
 	tool := mcp.NewTool(
 		"resources_apply",
 		mcp.WithDescription("Cria ou atualiza qualquer recurso Kubernetes/OpenShift/KubeVirt via objeto JSON genérico."),
@@ -200,7 +200,6 @@ func registerResourcesApplyTool(s *server.MCPServer, ctx *ServerContext) {
 			ri = ctx.DynClient.Resource(gvr)
 		}
 
-		// Tenta get; se existir, faz update; se não, create
 		current, err := ri.Get(c, name, metav1.GetOptions{})
 		if err == nil {
 			u.SetResourceVersion(current.GetResourceVersion())
@@ -229,7 +228,7 @@ type ResourcesDeleteInput struct {
 	Name      string `json:"name"`
 }
 
-func registerResourcesDeleteTool(s *server.MCPServer, ctx *ServerContext) {
+func registerResourcesDeleteTool(s *server.MCPServer, ctx *contextx.ServerContext) {
 	tool := mcp.NewTool(
 		"resources_delete",
 		mcp.WithDescription("Deleta qualquer recurso Kubernetes/OpenShift/KubeVirt via GVR + nome."),
@@ -263,6 +262,6 @@ func registerResourcesDeleteTool(s *server.MCPServer, ctx *ServerContext) {
 			return mcp.NewToolResultErrorFromErr("erro ao deletar recurso", err), nil
 		}
 
-		return TextResult(fmt.Sprintf("deleted %s/%s", in.Resource, in.Name)), nil
+		return TextResult("deleted"), nil
 	})
 }

@@ -7,7 +7,7 @@ import (
 
 	"github.com/fmendonca/openshfit-mcp/internal/k8s"
 	"github.com/fmendonca/openshfit-mcp/internal/mcpserver"
-	"github.com/mark3labs/mcp-go/server" // pacote server do mcp-go[web:35][web:74]
+	"github.com/mark3labs/mcp-go/server"
 )
 
 func main() {
@@ -30,7 +30,7 @@ func main() {
 
 	s := mcpserver.NewServer("openshift-kubevirt-mcp-go", "0.1.0", kubeClient, dynClient)
 
-	if err := server.ServeStdio(s); err != nil { // stdio, compatível com MCP clients[web:35][web:52]
+	if err := server.ServeStdio(s); err != nil {
 		log.Fatalf("erro ao iniciar MCP server: %v", err)
 	}
 }
