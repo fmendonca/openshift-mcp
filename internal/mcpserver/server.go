@@ -1,6 +1,8 @@
 package mcpserver
 
 import (
+	"github.com/fmendonca/openshfit-mcp/internal/kubevirt"
+	"github.com/fmendonca/openshfit-mcp/internal/openshift"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"k8s.io/client-go/dynamic"
@@ -25,15 +27,12 @@ func NewServer(name, version string, kube *kubernetes.Clientset, dyn dynamic.Int
 	}
 
 	RegisterCoreTools(s, ctx)
-	RegisterOpenShiftTools(s, ctx)
-	RegisterKubeVirtTools(s, ctx)
-
-	// opcional: registrar prompts, resources, etc.[web:35][web:74]
+	openshift.RegisterOpenShiftTools(s, ctx)
+	kubevirt.RegisterKubeVirtTools(s, ctx)
 
 	return s
 }
 
-// Helper para criar um resultado de texto
 func TextResult(text string) *mcp.CallToolResult {
 	return mcp.NewToolResultText(text)
 }

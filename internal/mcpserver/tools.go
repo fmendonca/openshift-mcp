@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/fmendonca/openshfit-mcp/internal/k8s"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/seuuser/openshfit-mcp/internal/k8s"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 )
 
 func RegisterCoreTools(s *server.MCPServer, ctx *ServerContext) {
