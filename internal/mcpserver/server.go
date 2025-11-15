@@ -11,26 +11,23 @@ import (
 )
 
 func NewServer(name, version string, kube *kubernetes.Clientset, dyn dynamic.Interface) *server.MCPServer {
-	s := server.NewMCPServer(
-		name,
-		version,
-		server.WithToolCapabilities(false),
-	)
-
 	ctx := &contextx.ServerContext{
 		KubeClient: kube,
 		DynClient:  dyn,
 	}
 
-	// tools genéricas
-	RegisterCoreTools(s, ctx)
-	// toolsets específicos
-	openshift.RegisterOpenShiftTools(s, ctx)
-	kubevirt.RegisterKubeVirtTools(s, ctx)
+	s := server.NewMCPServer(
+		name,
+		version,
+		server.WithTools(func(reg *mcp.ToolRegistry) {
+			// tools genéricas
+			RegisterCoreTools(reg, ctx)
+			// OpenShift
+			openshift.RegisterOpenShiftTools(reg, ctx)
+			// KubeVirt
+			kubevirt.RegisterKubeVirtTools(reg, ctx)
+		}),
+	)
 
 	return s
-}
-
-func TextResult(text string) *mcp.CallToolResult {
-	return mcp.NewToolResultText(text)
 }
