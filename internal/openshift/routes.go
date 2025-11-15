@@ -2,11 +2,11 @@ package openshift
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	contextx "github.com/fmendonca/openshfit-mcp/internal/context"
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -15,17 +15,44 @@ import (
 )
 
 // Registra todas as tools específicas de OpenShift
-func RegisterOpenShiftTools(reg *mcp.ToolRegistry, ctx *contextx.ServerContext) {
-	registerRoutesListTool(reg, ctx)
-	registerBuildConfigsListTool(reg, ctx)
-	registerImageStreamsListTool(reg, ctx)
-	registerProjectsListTool(reg, ctx)
-	registerDeploymentConfigsListTool(reg, ctx)
+func RegisterOpenShiftTools(s *server.MCPServer, ctx *contextx.ServerContext) {
+	registerRoutesListTool(s, ctx)
+	registerBuildConfigsListTool(s, ctx)
+	registerImageStreamsListTool(s, ctx)
+	registerProjectsListTool(s, ctx)
+	registerDeploymentConfigsListTool(s, ctx)
 
 	// ações
-	registerBuildConfigStartBuildTool(reg, ctx)
-	registerDeploymentConfigRolloutTool(reg, ctx)
-	registerImageStreamPromoteTagTool(reg, ctx)
+	registerBuildConfigStartBuildTool(s, ctx)
+	registerDeploymentConfigRolloutTool(s, ctx)
+	registerImageStreamPromoteTagTool(s, ctx)
+}
+
+// helpers para ler args do CallToolRequest (v0.43.0 usa Params.Arguments como any)
+func getStringArg(req mcp.CallToolRequest, key, def string) string {
+	args, ok := req.Params.Arguments.(map[string]any)
+	if !ok {
+		return def
+	}
+	if v, ok := args[key]; ok {
+		if s, ok2 := v.(string); ok2 {
+			return s
+		}
+	}
+	return def
+}
+
+func getBoolArg(req mcp.CallToolRequest, key string, def bool) bool {
+	args, ok := req.Params.Arguments.(map[string]any)
+	if !ok {
+		return def
+	}
+	if v, ok := args[key]; ok {
+		if b, ok2 := v.(bool); ok2 {
+			return b
+		}
+	}
+	return def
 }
 
 // ---------- Routes ----------
@@ -34,20 +61,16 @@ type RoutesListInput struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-func registerRoutesListTool(reg *mcp.ToolRegistry, ctx *contextx.ServerContext) {
-	reg.RegisterTool(&mcp.Tool{
-		Name:        "routes_list",
-		Description: "Lista Routes do OpenShift (route.openshift.io/v1, resource 'routes').",
-		InputSchema: &mcp.JSONSchema{
-			Type: "object",
-			Properties: map[string]*mcp.JSONSchema{
-				"namespace": {Type: "string"},
-			},
-		},
-	}, func(c context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		var in RoutesListInput
-		if err := json.Unmarshal(req.Params, &in); err != nil {
-			return mcp.NewErrorToolResult("falha ao decodificar argumentos", err), nil
+func registerRoutesListTool(s *server.MCPServer, ctx *contextx.ServerContext) {
+	tool := mcp.NewTool(
+		"routes_list",
+		mcp.WithDescription("Lista Routes do OpenShift (route.openshift.io/v1, resource 'routes')."),
+		mcp.WithString("namespace", mcp.Description("Namespace (opcional).")),
+	)
+
+	s.AddTool(tool, func(c context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		in := RoutesListInput{
+			Namespace: getStringArg(req, "namespace", ""),
 		}
 
 		gvr := schema.GroupVersionResource{
@@ -65,7 +88,7 @@ func registerRoutesListTool(reg *mcp.ToolRegistry, ctx *contextx.ServerContext) 
 
 		routes, err := ri.List(c, metav1.ListOptions{})
 		if err != nil {
-			return mcp.NewErrorToolResult("erro ao listar routes", err), nil
+			return mcp.NewToolResultErrorFromErr("erro ao listar routes", err), nil
 		}
 
 		b, _ := routes.MarshalJSON()
@@ -79,20 +102,16 @@ type BuildConfigsListInput struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-func registerBuildConfigsListTool(reg *mcp.ToolRegistry, ctx *contextx.ServerContext) {
-	reg.RegisterTool(&mcp.Tool{
-		Name:        "buildconfigs_list",
-		Description: "Lista BuildConfigs (build.openshift.io/v1, resource 'buildconfigs').",
-		InputSchema: &mcp.JSONSchema{
-			Type: "object",
-			Properties: map[string]*mcp.JSONSchema{
-				"namespace": {Type: "string"},
-			},
-		},
-	}, func(c context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		var in BuildConfigsListInput
-		if err := json.Unmarshal(req.Params, &in); err != nil {
-			return mcp.NewErrorToolResult("falha ao decodificar argumentos", err), nil
+func registerBuildConfigsListTool(s *server.MCPServer, ctx *contextx.ServerContext) {
+	tool := mcp.NewTool(
+		"buildconfigs_list",
+		mcp.WithDescription("Lista BuildConfigs (build.openshift.io/v1, resource 'buildconfigs')."),
+		mcp.WithString("namespace", mcp.Description("Namespace (opcional).")),
+	)
+
+	s.AddTool(tool, func(c context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		in := BuildConfigsListInput{
+			Namespace: getStringArg(req, "namespace", ""),
 		}
 
 		gvr := schema.GroupVersionResource{
@@ -110,7 +129,7 @@ func registerBuildConfigsListTool(reg *mcp.ToolRegistry, ctx *contextx.ServerCon
 
 		bcs, err := ri.List(c, metav1.ListOptions{})
 		if err != nil {
-			return mcp.NewErrorToolResult("erro ao listar BuildConfigs", err), nil
+			return mcp.NewToolResultErrorFromErr("erro ao listar BuildConfigs", err), nil
 		}
 
 		b, _ := bcs.MarshalJSON()
@@ -124,20 +143,16 @@ type ImageStreamsListInput struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-func registerImageStreamsListTool(reg *mcp.ToolRegistry, ctx *contextx.ServerContext) {
-	reg.RegisterTool(&mcp.Tool{
-		Name:        "imagestreams_list",
-		Description: "Lista ImageStreams (image.openshift.io/v1, resource 'imagestreams').",
-		InputSchema: &mcp.JSONSchema{
-			Type: "object",
-			Properties: map[string]*mcp.JSONSchema{
-				"namespace": {Type: "string"},
-			},
-		},
-	}, func(c context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		var in ImageStreamsListInput
-		if err := json.Unmarshal(req.Params, &in); err != nil {
-			return mcp.NewErrorToolResult("falha ao decodificar argumentos", err), nil
+func registerImageStreamsListTool(s *server.MCPServer, ctx *contextx.ServerContext) {
+	tool := mcp.NewTool(
+		"imagestreams_list",
+		mcp.WithDescription("Lista ImageStreams (image.openshift.io/v1, resource 'imagestreams')."),
+		mcp.WithString("namespace", mcp.Description("Namespace (opcional).")),
+	)
+
+	s.AddTool(tool, func(c context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		in := ImageStreamsListInput{
+			Namespace: getStringArg(req, "namespace", ""),
 		}
 
 		gvr := schema.GroupVersionResource{
@@ -155,7 +170,7 @@ func registerImageStreamsListTool(reg *mcp.ToolRegistry, ctx *contextx.ServerCon
 
 		iss, err := ri.List(c, metav1.ListOptions{})
 		if err != nil {
-			return mcp.NewErrorToolResult("erro ao listar ImageStreams", err), nil
+			return mcp.NewToolResultErrorFromErr("erro ao listar ImageStreams", err), nil
 		}
 
 		b, _ := iss.MarshalJSON()
@@ -167,11 +182,13 @@ func registerImageStreamsListTool(reg *mcp.ToolRegistry, ctx *contextx.ServerCon
 
 type ProjectsListInput struct{}
 
-func registerProjectsListTool(reg *mcp.ToolRegistry, ctx *contextx.ServerContext) {
-	reg.RegisterTool(&mcp.Tool{
-		Name:        "projects_list",
-		Description: "Lista Projects (project.openshift.io/v1, resource 'projects').",
-	}, func(c context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func registerProjectsListTool(s *server.MCPServer, ctx *contextx.ServerContext) {
+	tool := mcp.NewTool(
+		"projects_list",
+		mcp.WithDescription("Lista Projects (project.openshift.io/v1, resource 'projects')."),
+	)
+
+	s.AddTool(tool, func(c context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		gvr := schema.GroupVersionResource{
 			Group:    "project.openshift.io",
 			Version:  "v1",
@@ -182,7 +199,7 @@ func registerProjectsListTool(reg *mcp.ToolRegistry, ctx *contextx.ServerContext
 
 		projects, err := ri.List(c, metav1.ListOptions{})
 		if err != nil {
-			return mcp.NewErrorToolResult("erro ao listar Projects", err), nil
+			return mcp.NewToolResultErrorFromErr("erro ao listar Projects", err), nil
 		}
 
 		b, _ := projects.MarshalJSON()
@@ -196,20 +213,16 @@ type DeploymentConfigsListInput struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-func registerDeploymentConfigsListTool(reg *mcp.ToolRegistry, ctx *contextx.ServerContext) {
-	reg.RegisterTool(&mcp.Tool{
-		Name:        "deploymentconfigs_list",
-		Description: "Lista DeploymentConfigs (apps.openshift.io/v1, resource 'deploymentconfigs').",
-		InputSchema: &mcp.JSONSchema{
-			Type: "object",
-			Properties: map[string]*mcp.JSONSchema{
-				"namespace": {Type: "string"},
-			},
-		},
-	}, func(c context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		var in DeploymentConfigsListInput
-		if err := json.Unmarshal(req.Params, &in); err != nil {
-			return mcp.NewErrorToolResult("falha ao decodificar argumentos", err), nil
+func registerDeploymentConfigsListTool(s *server.MCPServer, ctx *contextx.ServerContext) {
+	tool := mcp.NewTool(
+		"deploymentconfigs_list",
+		mcp.WithDescription("Lista DeploymentConfigs (apps.openshift.io/v1, resource 'deploymentconfigs')."),
+		mcp.WithString("namespace", mcp.Description("Namespace (opcional).")),
+	)
+
+	s.AddTool(tool, func(c context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		in := DeploymentConfigsListInput{
+			Namespace: getStringArg(req, "namespace", ""),
 		}
 
 		gvr := schema.GroupVersionResource{
@@ -227,7 +240,7 @@ func registerDeploymentConfigsListTool(reg *mcp.ToolRegistry, ctx *contextx.Serv
 
 		dcs, err := ri.List(c, metav1.ListOptions{})
 		if err != nil {
-			return mcp.NewErrorToolResult("erro ao listar DeploymentConfigs", err), nil
+			return mcp.NewToolResultErrorFromErr("erro ao listar DeploymentConfigs", err), nil
 		}
 
 		b, _ := dcs.MarshalJSON()
@@ -242,22 +255,21 @@ type BuildConfigStartBuildInput struct {
 	Name      string `json:"name"`
 }
 
-func registerBuildConfigStartBuildTool(reg *mcp.ToolRegistry, ctx *contextx.ServerContext) {
-	reg.RegisterTool(&mcp.Tool{
-		Name:        "buildconfig_start_build",
-		Description: "Dispara um build a partir de um BuildConfig (equivalente a 'oc start-build').",
-		InputSchema: &mcp.JSONSchema{
-			Type: "object",
-			Properties: map[string]*mcp.JSONSchema{
-				"namespace": {Type: "string"},
-				"name":      {Type: "string"},
-			},
-			Required: []string{"namespace", "name"},
-		},
-	}, func(c context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		var in BuildConfigStartBuildInput
-		if err := json.Unmarshal(req.Params, &in); err != nil {
-			return mcp.NewErrorToolResult("falha ao decodificar argumentos", err), nil
+func registerBuildConfigStartBuildTool(s *server.MCPServer, ctx *contextx.ServerContext) {
+	tool := mcp.NewTool(
+		"buildconfig_start_build",
+		mcp.WithDescription("Dispara um build a partir de um BuildConfig (equivalente a 'oc start-build')."),
+		mcp.WithString("namespace", mcp.Required(), mcp.Description("Namespace do BuildConfig.")),
+		mcp.WithString("name", mcp.Required(), mcp.Description("Nome do BuildConfig.")),
+	)
+
+	s.AddTool(tool, func(c context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		in := BuildConfigStartBuildInput{
+			Namespace: getStringArg(req, "namespace", ""),
+			Name:      getStringArg(req, "name", ""),
+		}
+		if in.Namespace == "" || in.Name == "" {
+			return mcp.NewToolResultError("namespace e name são obrigatórios"), nil
 		}
 
 		bcGVR := schema.GroupVersionResource{
@@ -268,12 +280,12 @@ func registerBuildConfigStartBuildTool(reg *mcp.ToolRegistry, ctx *contextx.Serv
 
 		bc, err := ctx.DynClient.Resource(bcGVR).Namespace(in.Namespace).Get(c, in.Name, metav1.GetOptions{})
 		if err != nil {
-			return mcp.NewErrorToolResult("erro ao obter BuildConfig", err), nil
+			return mcp.NewToolResultErrorFromErr("erro ao obter BuildConfig", err), nil
 		}
 
 		spec, ok := bc.Object["spec"].(map[string]interface{})
 		if !ok {
-			return mcp.NewErrorToolResult("BuildConfig sem spec válido", nil), nil
+			return mcp.NewToolResultError("BuildConfig sem spec válido"), nil
 		}
 
 		build := map[string]interface{}{
@@ -308,7 +320,7 @@ func registerBuildConfigStartBuildTool(reg *mcp.ToolRegistry, ctx *contextx.Serv
 			metav1.CreateOptions{},
 		)
 		if err != nil {
-			return mcp.NewErrorToolResult("erro ao criar Build", err), nil
+			return mcp.NewToolResultErrorFromErr("erro ao criar Build", err), nil
 		}
 
 		b, _ := created.MarshalJSON()
@@ -323,22 +335,21 @@ type DeploymentConfigRolloutInput struct {
 	Name      string `json:"name"`
 }
 
-func registerDeploymentConfigRolloutTool(reg *mcp.ToolRegistry, ctx *contextx.ServerContext) {
-	reg.RegisterTool(&mcp.Tool{
-		Name:        "deploymentconfig_rollout_latest",
-		Description: "Dispara um rollout manual da DeploymentConfig (equivalente a 'oc rollout latest').",
-		InputSchema: &mcp.JSONSchema{
-			Type: "object",
-			Properties: map[string]*mcp.JSONSchema{
-				"namespace": {Type: "string"},
-				"name":      {Type: "string"},
-			},
-			Required: []string{"namespace", "name"},
-		},
-	}, func(c context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		var in DeploymentConfigRolloutInput
-		if err := json.Unmarshal(req.Params, &in); err != nil {
-			return mcp.NewErrorToolResult("falha ao decodificar argumentos", err), nil
+func registerDeploymentConfigRolloutTool(s *server.MCPServer, ctx *contextx.ServerContext) {
+	tool := mcp.NewTool(
+		"deploymentconfig_rollout_latest",
+		mcp.WithDescription("Dispara um rollout manual da DeploymentConfig (equivalente a 'oc rollout latest')."),
+		mcp.WithString("namespace", mcp.Required(), mcp.Description("Namespace da DeploymentConfig.")),
+		mcp.WithString("name", mcp.Required(), mcp.Description("Nome da DeploymentConfig.")),
+	)
+
+	s.AddTool(tool, func(c context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		in := DeploymentConfigRolloutInput{
+			Namespace: getStringArg(req, "namespace", ""),
+			Name:      getStringArg(req, "name", ""),
+		}
+		if in.Namespace == "" || in.Name == "" {
+			return mcp.NewToolResultError("namespace e name são obrigatórios"), nil
 		}
 
 		gvr := schema.GroupVersionResource{
@@ -351,7 +362,7 @@ func registerDeploymentConfigRolloutTool(reg *mcp.ToolRegistry, ctx *contextx.Se
 
 		dc, err := ri.Get(c, in.Name, metav1.GetOptions{})
 		if err != nil {
-			return mcp.NewErrorToolResult("erro ao obter DeploymentConfig", err), nil
+			return mcp.NewToolResultErrorFromErr("erro ao obter DeploymentConfig", err), nil
 		}
 
 		latest, found, _ := unstructured.NestedInt64(dc.Object, "status", "latestVersion")
@@ -364,7 +375,7 @@ func registerDeploymentConfigRolloutTool(reg *mcp.ToolRegistry, ctx *contextx.Se
 
 		updated, err := ri.Patch(c, in.Name, types.MergePatchType, patch, metav1.PatchOptions{})
 		if err != nil {
-			return mcp.NewErrorToolResult("erro ao acionar rollout", err), nil
+			return mcp.NewToolResultErrorFromErr("erro ao acionar rollout", err), nil
 		}
 
 		b, _ := updated.MarshalJSON()
@@ -382,25 +393,27 @@ type ImageStreamPromoteTagInput struct {
 	TargetIsCopy bool   `json:"targetIsCopy"`
 }
 
-func registerImageStreamPromoteTagTool(reg *mcp.ToolRegistry, ctx *contextx.ServerContext) {
-	reg.RegisterTool(&mcp.Tool{
-		Name:        "imagestream_promote_tag",
-		Description: "Promove uma tag de ImageStream (ex: 'app:dev' -> 'app:prod') usando ImageStreamTag.",
-		InputSchema: &mcp.JSONSchema{
-			Type: "object",
-			Properties: map[string]*mcp.JSONSchema{
-				"namespace":    {Type: "string"},
-				"imageStream":  {Type: "string"},
-				"sourceTag":    {Type: "string"},
-				"targetTag":    {Type: "string"},
-				"targetIsCopy": {Type: "boolean"},
-			},
-			Required: []string{"namespace", "imageStream", "sourceTag", "targetTag"},
-		},
-	}, func(c context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		var in ImageStreamPromoteTagInput
-		if err := json.Unmarshal(req.Params, &in); err != nil {
-			return mcp.NewErrorToolResult("falha ao decodificar argumentos", err), nil
+func registerImageStreamPromoteTagTool(s *server.MCPServer, ctx *contextx.ServerContext) {
+	tool := mcp.NewTool(
+		"imagestream_promote_tag",
+		mcp.WithDescription("Promove uma tag de ImageStream (ex: 'app:dev' -> 'app:prod') usando ImageStreamTag."),
+		mcp.WithString("namespace", mcp.Required(), mcp.Description("Namespace do ImageStream.")),
+		mcp.WithString("imageStream", mcp.Required(), mcp.Description("Nome do ImageStream.")),
+		mcp.WithString("sourceTag", mcp.Required(), mcp.Description("Tag de origem (ex: dev).")),
+		mcp.WithString("targetTag", mcp.Required(), mcp.Description("Tag de destino (ex: prod).")),
+		// sem WithBool; targetIsCopy será tratado somente nos argumentos
+	)
+
+	s.AddTool(tool, func(c context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		in := ImageStreamPromoteTagInput{
+			Namespace:    getStringArg(req, "namespace", ""),
+			ImageStream:  getStringArg(req, "imageStream", ""),
+			SourceTag:    getStringArg(req, "sourceTag", ""),
+			TargetTag:    getStringArg(req, "targetTag", ""),
+			TargetIsCopy: getBoolArg(req, "targetIsCopy", false),
+		}
+		if in.Namespace == "" || in.ImageStream == "" || in.SourceTag == "" || in.TargetTag == "" {
+			return mcp.NewToolResultError("namespace, imageStream, sourceTag e targetTag são obrigatórios"), nil
 		}
 
 		istGVR := schema.GroupVersionResource{
@@ -416,7 +429,7 @@ func registerImageStreamPromoteTagTool(reg *mcp.ToolRegistry, ctx *contextx.Serv
 
 		src, err := ri.Get(c, srcName, metav1.GetOptions{})
 		if err != nil {
-			return mcp.NewErrorToolResult("erro ao obter ImageStreamTag de origem", err), nil
+			return mcp.NewToolResultErrorFromErr("erro ao obter ImageStreamTag de origem", err), nil
 		}
 
 		obj := map[string]interface{}{
@@ -431,7 +444,7 @@ func registerImageStreamPromoteTagTool(reg *mcp.ToolRegistry, ctx *contextx.Serv
 		if in.TargetIsCopy {
 			image, _, _ := unstructured.NestedString(src.Object, "image", "dockerImageReference")
 			if image == "" {
-				return mcp.NewErrorToolResult("não foi possível determinar dockerImageReference de origem", nil), nil
+				return mcp.NewToolResultError("não foi possível determinar dockerImageReference de origem"), nil
 			}
 
 			obj["tag"] = map[string]interface{}{
@@ -456,7 +469,7 @@ func registerImageStreamPromoteTagTool(reg *mcp.ToolRegistry, ctx *contextx.Serv
 			obj["metadata"].(map[string]interface{})["resourceVersion"] = dst.GetResourceVersion()
 			updated, err := ri.Update(c, &unstructured.Unstructured{Object: obj}, metav1.UpdateOptions{})
 			if err != nil {
-				return mcp.NewErrorToolResult("erro ao atualizar ImageStreamTag de destino", err), nil
+				return mcp.NewToolResultErrorFromErr("erro ao atualizar ImageStreamTag de destino", err), nil
 			}
 			b, _ := updated.MarshalJSON()
 			return mcp.NewToolResultText(string(b)), nil
@@ -464,7 +477,7 @@ func registerImageStreamPromoteTagTool(reg *mcp.ToolRegistry, ctx *contextx.Serv
 
 		created, err := ri.Create(c, &unstructured.Unstructured{Object: obj}, metav1.CreateOptions{})
 		if err != nil {
-			return mcp.NewErrorToolResult("erro ao criar ImageStreamTag de destino", err), nil
+			return mcp.NewToolResultErrorFromErr("erro ao criar ImageStreamTag de destino", err), nil
 		}
 
 		b, _ := created.MarshalJSON()

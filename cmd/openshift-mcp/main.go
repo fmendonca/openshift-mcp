@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"log"
 	"os"
 
@@ -11,8 +10,6 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
-
 	cfg := k8s.Config{
 		Kubeconfig: os.Getenv("KUBECONFIG"),
 		InCluster:  os.Getenv("IN_CLUSTER") == "true",

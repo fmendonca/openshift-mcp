@@ -2,11 +2,11 @@ package kubevirt
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	contextx "github.com/fmendonca/openshfit-mcp/internal/context"
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -14,11 +14,25 @@ import (
 )
 
 // Registra tools específicas de KubeVirt
-func RegisterKubeVirtTools(reg *mcp.ToolRegistry, ctx *contextx.ServerContext) {
-	registerVMsListTool(reg, ctx)
-	registerVMStartTool(reg, ctx)
-	registerVMStopTool(reg, ctx)
-	registerVMRestartTool(reg, ctx)
+func RegisterKubeVirtTools(s *server.MCPServer, ctx *contextx.ServerContext) {
+	registerVMsListTool(s, ctx)
+	registerVMStartTool(s, ctx)
+	registerVMStopTool(s, ctx)
+	registerVMRestartTool(s, ctx)
+}
+
+// helper para ler string de argumentos (CallToolRequest.Params.Arguments é map[string]any)
+func getStringArg(req mcp.CallToolRequest, key, def string) string {
+	args, ok := req.Params.Arguments.(map[string]any)
+	if !ok {
+		return def
+	}
+	if v, ok := args[key]; ok {
+		if s, ok2 := v.(string); ok2 {
+			return s
+		}
+	}
+	return def
 }
 
 // ---------- List VMs ----------
@@ -27,20 +41,16 @@ type VMsListInput struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-func registerVMsListTool(reg *mcp.ToolRegistry, ctx *contextx.ServerContext) {
-	reg.RegisterTool(&mcp.Tool{
-		Name:        "kubevirt_vms_list",
-		Description: "Lista VirtualMachines do KubeVirt (kubevirt.io/v1, resource 'virtualmachines').",
-		InputSchema: &mcp.JSONSchema{
-			Type: "object",
-			Properties: map[string]*mcp.JSONSchema{
-				"namespace": {Type: "string"},
-			},
-		},
-	}, func(c context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		var in VMsListInput
-		if err := json.Unmarshal(req.Params, &in); err != nil {
-			return mcp.NewErrorToolResult("falha ao decodificar argumentos", err), nil
+func registerVMsListTool(s *server.MCPServer, ctx *contextx.ServerContext) {
+	tool := mcp.NewTool(
+		"kubevirt_vms_list",
+		mcp.WithDescription("Lista VirtualMachines do KubeVirt (kubevirt.io/v1, resource 'virtualmachines')."),
+		mcp.WithString("namespace", mcp.Description("Namespace (opcional).")),
+	)
+
+	s.AddTool(tool, func(c context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		in := VMsListInput{
+			Namespace: getStringArg(req, "namespace", ""),
 		}
 
 		gvr := schema.GroupVersionResource{
@@ -58,7 +68,7 @@ func registerVMsListTool(reg *mcp.ToolRegistry, ctx *contextx.ServerContext) {
 
 		vms, err := ri.List(c, metav1.ListOptions{})
 		if err != nil {
-			return mcp.NewErrorToolResult("erro ao listar VMs", err), nil
+			return mcp.NewToolResultErrorFromErr("erro ao listar VMs", err), nil
 		}
 
 		b, _ := vms.MarshalJSON()
@@ -81,22 +91,21 @@ func vmGVR() schema.GroupVersionResource {
 	}
 }
 
-func registerVMStartTool(reg *mcp.ToolRegistry, ctx *contextx.ServerContext) {
-	reg.RegisterTool(&mcp.Tool{
-		Name:        "kubevirt_vm_start",
-		Description: "Inicia uma VirtualMachine do KubeVirt ajustando runStrategy para 'Always'.",
-		InputSchema: &mcp.JSONSchema{
-			Type: "object",
-			Properties: map[string]*mcp.JSONSchema{
-				"namespace": {Type: "string"},
-				"name":      {Type: "string"},
-			},
-			Required: []string{"namespace", "name"},
-		},
-	}, func(c context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		var in VMActionInput
-		if err := json.Unmarshal(req.Params, &in); err != nil {
-			return mcp.NewErrorToolResult("falha ao decodificar argumentos", err), nil
+func registerVMStartTool(s *server.MCPServer, ctx *contextx.ServerContext) {
+	tool := mcp.NewTool(
+		"kubevirt_vm_start",
+		mcp.WithDescription("Inicia uma VirtualMachine do KubeVirt ajustando runStrategy para 'Always'."),
+		mcp.WithString("namespace", mcp.Required(), mcp.Description("Namespace da VM.")),
+		mcp.WithString("name", mcp.Required(), mcp.Description("Nome da VirtualMachine.")),
+	)
+
+	s.AddTool(tool, func(c context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		in := VMActionInput{
+			Namespace: getStringArg(req, "namespace", ""),
+			Name:      getStringArg(req, "name", ""),
+		}
+		if in.Namespace == "" || in.Name == "" {
+			return mcp.NewToolResultError("namespace e name são obrigatórios"), nil
 		}
 
 		patch := []byte(`{"spec":{"runStrategy":"Always"}}`)
@@ -104,29 +113,28 @@ func registerVMStartTool(reg *mcp.ToolRegistry, ctx *contextx.ServerContext) {
 		ri := ctx.DynClient.Resource(vmGVR()).Namespace(in.Namespace)
 		_, err := ri.Patch(c, in.Name, types.MergePatchType, patch, metav1.PatchOptions{})
 		if err != nil {
-			return mcp.NewErrorToolResult("erro ao iniciar VM", err), nil
+			return mcp.NewToolResultErrorFromErr("erro ao iniciar VM", err), nil
 		}
 
 		return mcp.NewToolResultText(fmt.Sprintf("VM %s/%s iniciada (runStrategy=Always)", in.Namespace, in.Name)), nil
 	})
 }
 
-func registerVMStopTool(reg *mcp.ToolRegistry, ctx *contextx.ServerContext) {
-	reg.RegisterTool(&mcp.Tool{
-		Name:        "kubevirt_vm_stop",
-		Description: "Desliga uma VirtualMachine do KubeVirt ajustando runStrategy para 'Halted'.",
-		InputSchema: &mcp.JSONSchema{
-			Type: "object",
-			Properties: map[string]*mcp.JSONSchema{
-				"namespace": {Type: "string"},
-				"name":      {Type: "string"},
-			},
-			Required: []string{"namespace", "name"},
-		},
-	}, func(c context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		var in VMActionInput
-		if err := json.Unmarshal(req.Params, &in); err != nil {
-			return mcp.NewErrorToolResult("falha ao decodificar argumentos", err), nil
+func registerVMStopTool(s *server.MCPServer, ctx *contextx.ServerContext) {
+	tool := mcp.NewTool(
+		"kubevirt_vm_stop",
+		mcp.WithDescription("Desliga uma VirtualMachine do KubeVirt ajustando runStrategy para 'Halted'."),
+		mcp.WithString("namespace", mcp.Required(), mcp.Description("Namespace da VM.")),
+		mcp.WithString("name", mcp.Required(), mcp.Description("Nome da VirtualMachine.")),
+	)
+
+	s.AddTool(tool, func(c context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		in := VMActionInput{
+			Namespace: getStringArg(req, "namespace", ""),
+			Name:      getStringArg(req, "name", ""),
+		}
+		if in.Namespace == "" || in.Name == "" {
+			return mcp.NewToolResultError("namespace e name são obrigatórios"), nil
 		}
 
 		patch := []byte(`{"spec":{"runStrategy":"Halted"}}`)
@@ -134,29 +142,28 @@ func registerVMStopTool(reg *mcp.ToolRegistry, ctx *contextx.ServerContext) {
 		ri := ctx.DynClient.Resource(vmGVR()).Namespace(in.Namespace)
 		_, err := ri.Patch(c, in.Name, types.MergePatchType, patch, metav1.PatchOptions{})
 		if err != nil {
-			return mcp.NewErrorToolResult("erro ao parar VM", err), nil
+			return mcp.NewToolResultErrorFromErr("erro ao parar VM", err), nil
 		}
 
 		return mcp.NewToolResultText(fmt.Sprintf("VM %s/%s parada (runStrategy=Halted)", in.Namespace, in.Name)), nil
 	})
 }
 
-func registerVMRestartTool(reg *mcp.ToolRegistry, ctx *contextx.ServerContext) {
-	reg.RegisterTool(&mcp.Tool{
-		Name:        "kubevirt_vm_restart",
-		Description: "Reinicia uma VirtualMachine do KubeVirt adicionando um stateChangeRequest 'Restart'.",
-		InputSchema: &mcp.JSONSchema{
-			Type: "object",
-			Properties: map[string]*mcp.JSONSchema{
-				"namespace": {Type: "string"},
-				"name":      {Type: "string"},
-			},
-			Required: []string{"namespace", "name"},
-		},
-	}, func(c context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		var in VMActionInput
-		if err := json.Unmarshal(req.Params, &in); err != nil {
-			return mcp.NewErrorToolResult("falha ao decodificar argumentos", err), nil
+func registerVMRestartTool(s *server.MCPServer, ctx *contextx.ServerContext) {
+	tool := mcp.NewTool(
+		"kubevirt_vm_restart",
+		mcp.WithDescription("Reinicia uma VirtualMachine do KubeVirt adicionando um stateChangeRequest 'Restart'."),
+		mcp.WithString("namespace", mcp.Required(), mcp.Description("Namespace da VM.")),
+		mcp.WithString("name", mcp.Required(), mcp.Description("Nome da VirtualMachine.")),
+	)
+
+	s.AddTool(tool, func(c context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		in := VMActionInput{
+			Namespace: getStringArg(req, "namespace", ""),
+			Name:      getStringArg(req, "name", ""),
+		}
+		if in.Namespace == "" || in.Name == "" {
+			return mcp.NewToolResultError("namespace e name são obrigatórios"), nil
 		}
 
 		patch := []byte(`{"spec":{"runStrategy":"Always","stateChangeRequests":[{"action":"Restart"}]}}`)
@@ -164,7 +171,7 @@ func registerVMRestartTool(reg *mcp.ToolRegistry, ctx *contextx.ServerContext) {
 		ri := ctx.DynClient.Resource(vmGVR()).Namespace(in.Namespace)
 		_, err := ri.Patch(c, in.Name, types.MergePatchType, patch, metav1.PatchOptions{})
 		if err != nil {
-			return mcp.NewErrorToolResult("erro ao reiniciar VM", err), nil
+			return mcp.NewToolResultErrorFromErr("erro ao reiniciar VM", err), nil
 		}
 
 		return mcp.NewToolResultText(fmt.Sprintf("VM %s/%s reiniciada (stateChangeRequests=Restart)", in.Namespace, in.Name)), nil
