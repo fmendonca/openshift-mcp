@@ -1,0 +1,22 @@
+server:
+  name: "openshift-mcp"
+  version: "1.0.0"
+
+  # stdio | tcp
+  transport: "stdio"
+
+  # Só usado se transport = tcp
+  listenAddress: "0.0.0.0:8080"
+
+kubernetes:
+  # Se for true, tenta in-cluster primeiro; se false, sempre kubeconfig
+  inClusterFirst: true
+
+  # Caminho explícito opcional do kubeconfig (sobrepõe defaults)
+  kubeconfig: ""
+
+  # Timeout padrão (em segundos) para chamadas de API
+  requestTimeoutSeconds: 30
+
+logging:
+  level: "info"     # debug | info | warn | error
