@@ -8,8 +8,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/fmendonca/openshift-mcp/internal/clients"
 	mcpserver "github.com/fmendonca/openshift-mcp/internal/server"
-	"github.com/fmendonca/opesnshift-mcp/internal/clients"
 
 	// Tools (Kubernetes)
 	"github.com/fmendonca/openshift-mcp/internal/tools/configmaps"
