@@ -1,35 +1,21 @@
-# openshfit-mcp
+# OpenShift/Kubernetes MCP Server
 
-MCP server em Go para interagir com todas as APIs do OpenShift (incluindo CRDs e Operators) e também com recursos do KubeVirt.
+Model Context Protocol (MCP) server for interacting with OpenShift and Kubernetes clusters.
 
-## Build
+## Features
 
-go mod tidy
-go build -o openshfit-mcp ./cmd/openshift-mcp
+- **Pods**: List, get, logs, exec, delete
+- **Deployments**: List, get, scale, restart
+- **Services**: List, get details
+- **Routes**: List and inspect OpenShift routes
+- **ImageStreams**: Manage OpenShift image streams
+- **Projects**: List and manage OpenShift projects
+- **Nodes**: Cluster node information
+- **ConfigMaps**: Configuration management
+- **Secrets**: Secret management (masked)
+- **PVCs**: Persistent volume claims
+- **Ingress**: Ingress resources
+- **RBAC**: Roles and bindings
 
-
-## Uso (fora do cluster)
-
-export KUBECONFIG=~/.kube/config
-./openshfit-mcp
-
-
-
-## Uso (dentro do OpenShift)
-
-- Crie um ServiceAccount com permissões (RBAC) para os recursos desejados.
-- Monte o ServiceAccount no Pod.
-- Defina `IN_CLUSTER=true` no deployment.
-
-O servidor fala MCP via stdio, podendo ser integrado a clientes MCP (Claude, etc.) ou exposto via HTTP com `mcp-go/server.ServeHTTP` se preferir.
-
-
-
-## Uso (dentro do OpenShift)
-
-- Crie um ServiceAccount com permissões (RBAC) para os recursos desejados.
-- Monte o ServiceAccount no Pod.
-- Defina `IN_CLUSTER=true` no deployment.
-
-O servidor fala MCP via stdio, podendo ser integrado a clientes MCP (Claude, etc.) ou exposto via HTTP com `mcp-go/server.ServeHTTP` se preferir.
+## Installation
 
