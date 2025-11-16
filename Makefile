@@ -1,6 +1,6 @@
 .PHONY: build run test clean install lint docker-build
 
-BINARY_NAME=openshift-k8s-mcp
+BINARY_NAME=openshift-mcp
 BUILD_DIR=./build
 CMD_DIR=./cmd/server
 

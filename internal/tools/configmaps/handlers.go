@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/fmendonca/openshift-mcp/internal/clients"
+	"github.com/fmendonca/openshift-mcp/internal/utils"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/yourusername/openshift-k8s-mcp/internal/clients"
-	"github.com/yourusername/openshift-k8s-mcp/internal/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

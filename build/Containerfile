@@ -7,7 +7,7 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o openshift-k8s-mcp ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o openshift-mcp ./cmd/server
 
 FROM alpine:latest
 
@@ -15,6 +15,6 @@ RUN apk --no-cache add ca-certificates
 
 WORKDIR /root/
 
-COPY --from=builder /app/openshift-k8s-mcp .
+COPY --from=builder /app/openshift-mcp .
 
-CMD ["./openshift-k8s-mcp"]
+CMD ["./openshift-mcp"]

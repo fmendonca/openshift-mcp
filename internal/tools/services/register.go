@@ -3,8 +3,8 @@ package services
 
 import (
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/yourusername/openshift-k8s-mcp/internal/clients"
-	"github.com/yourusername/openshift-k8s-mcp/internal/server"
+	"github.com/fmendonca/openshift-mcp/internal/clients"
+	"github.com/fmendonca/openshift-mcp/internal/server"
 )
 
 func RegisterTools(srv *server.MCPServer, clients *clients.Clients) {
