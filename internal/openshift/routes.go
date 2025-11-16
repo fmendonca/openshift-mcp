@@ -28,7 +28,7 @@ func RegisterOpenShiftTools(s *server.MCPServer, ctx *contextx.ServerContext) {
 	registerImageStreamPromoteTagTool(s, ctx)
 }
 
-// helpers para ler args do CallToolRequest (v0.43.0 usa Params.Arguments como any)
+// helpers para ler args do CallToolRequest (v0.43.0 usa Params.Arguments como interface{})
 func getStringArg(req mcp.CallToolRequest, key, def string) string {
 	args, ok := req.Params.Arguments.(map[string]any)
 	if !ok {
@@ -69,9 +69,7 @@ func registerRoutesListTool(s *server.MCPServer, ctx *contextx.ServerContext) {
 	)
 
 	s.AddTool(tool, func(c context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		in := RoutesListInput{
-			Namespace: getStringArg(req, "namespace", ""),
-		}
+		namespace := getStringArg(req, "namespace", "")
 
 		gvr := schema.GroupVersionResource{
 			Group:    "route.openshift.io",
@@ -80,18 +78,43 @@ func registerRoutesListTool(s *server.MCPServer, ctx *contextx.ServerContext) {
 		}
 
 		var ri dynamic.ResourceInterface
-		if in.Namespace != "" {
-			ri = ctx.DynClient.Resource(gvr).Namespace(in.Namespace)
+		if namespace != "" {
+			ri = ctx.DynClient.Resource(gvr).Namespace(namespace)
 		} else {
-			ri = ctx.DynClient.Resource(gvr)
+			ri = ctx.DynClient.Resource(gvr).Namespace(metav1.NamespaceAll)
 		}
 
-		routes, err := ri.List(c, metav1.ListOptions{})
+		var allItems []unstructured.Unstructured
+		var cont string
+
+		for {
+			opts := metav1.ListOptions{
+				Limit:    100,
+				Continue: cont,
+			}
+
+			list, err := ri.List(c, opts)
+			if err != nil {
+				return mcp.NewToolResultErrorFromErr("erro ao listar routes", err), nil
+			}
+
+			allItems = append(allItems, list.Items...)
+
+			cont = list.GetContinue()
+			if cont == "" {
+				break
+			}
+		}
+
+		listResult := &unstructured.UnstructuredList{
+			Items: allItems,
+		}
+
+		b, err := listResult.MarshalJSON()
 		if err != nil {
-			return mcp.NewToolResultErrorFromErr("erro ao listar routes", err), nil
+			return mcp.NewToolResultErrorFromErr("erro ao serializar lista", err), nil
 		}
 
-		b, _ := routes.MarshalJSON()
 		return mcp.NewToolResultText(string(b)), nil
 	})
 }
@@ -110,9 +133,7 @@ func registerBuildConfigsListTool(s *server.MCPServer, ctx *contextx.ServerConte
 	)
 
 	s.AddTool(tool, func(c context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		in := BuildConfigsListInput{
-			Namespace: getStringArg(req, "namespace", ""),
-		}
+		namespace := getStringArg(req, "namespace", "")
 
 		gvr := schema.GroupVersionResource{
 			Group:    "build.openshift.io",
@@ -121,18 +142,43 @@ func registerBuildConfigsListTool(s *server.MCPServer, ctx *contextx.ServerConte
 		}
 
 		var ri dynamic.ResourceInterface
-		if in.Namespace != "" {
-			ri = ctx.DynClient.Resource(gvr).Namespace(in.Namespace)
+		if namespace != "" {
+			ri = ctx.DynClient.Resource(gvr).Namespace(namespace)
 		} else {
-			ri = ctx.DynClient.Resource(gvr)
+			ri = ctx.DynClient.Resource(gvr).Namespace(metav1.NamespaceAll)
 		}
 
-		bcs, err := ri.List(c, metav1.ListOptions{})
+		var allItems []unstructured.Unstructured
+		var cont string
+
+		for {
+			opts := metav1.ListOptions{
+				Limit:    100,
+				Continue: cont,
+			}
+
+			list, err := ri.List(c, opts)
+			if err != nil {
+				return mcp.NewToolResultErrorFromErr("erro ao listar BuildConfigs", err), nil
+			}
+
+			allItems = append(allItems, list.Items...)
+
+			cont = list.GetContinue()
+			if cont == "" {
+				break
+			}
+		}
+
+		listResult := &unstructured.UnstructuredList{
+			Items: allItems,
+		}
+
+		b, err := listResult.MarshalJSON()
 		if err != nil {
-			return mcp.NewToolResultErrorFromErr("erro ao listar BuildConfigs", err), nil
+			return mcp.NewToolResultErrorFromErr("erro ao serializar lista", err), nil
 		}
 
-		b, _ := bcs.MarshalJSON()
 		return mcp.NewToolResultText(string(b)), nil
 	})
 }
@@ -151,9 +197,7 @@ func registerImageStreamsListTool(s *server.MCPServer, ctx *contextx.ServerConte
 	)
 
 	s.AddTool(tool, func(c context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		in := ImageStreamsListInput{
-			Namespace: getStringArg(req, "namespace", ""),
-		}
+		namespace := getStringArg(req, "namespace", "")
 
 		gvr := schema.GroupVersionResource{
 			Group:    "image.openshift.io",
@@ -162,25 +206,48 @@ func registerImageStreamsListTool(s *server.MCPServer, ctx *contextx.ServerConte
 		}
 
 		var ri dynamic.ResourceInterface
-		if in.Namespace != "" {
-			ri = ctx.DynClient.Resource(gvr).Namespace(in.Namespace)
+		if namespace != "" {
+			ri = ctx.DynClient.Resource(gvr).Namespace(namespace)
 		} else {
-			ri = ctx.DynClient.Resource(gvr)
+			ri = ctx.DynClient.Resource(gvr).Namespace(metav1.NamespaceAll)
 		}
 
-		iss, err := ri.List(c, metav1.ListOptions{})
+		var allItems []unstructured.Unstructured
+		var cont string
+
+		for {
+			opts := metav1.ListOptions{
+				Limit:    100,
+				Continue: cont,
+			}
+
+			list, err := ri.List(c, opts)
+			if err != nil {
+				return mcp.NewToolResultErrorFromErr("erro ao listar ImageStreams", err), nil
+			}
+
+			allItems = append(allItems, list.Items...)
+
+			cont = list.GetContinue()
+			if cont == "" {
+				break
+			}
+		}
+
+		listResult := &unstructured.UnstructuredList{
+			Items: allItems,
+		}
+
+		b, err := listResult.MarshalJSON()
 		if err != nil {
-			return mcp.NewToolResultErrorFromErr("erro ao listar ImageStreams", err), nil
+			return mcp.NewToolResultErrorFromErr("erro ao serializar lista", err), nil
 		}
 
-		b, _ := iss.MarshalJSON()
 		return mcp.NewToolResultText(string(b)), nil
 	})
 }
 
 // ---------- Project ----------
-
-type ProjectsListInput struct{}
 
 func registerProjectsListTool(s *server.MCPServer, ctx *contextx.ServerContext) {
 	tool := mcp.NewTool(
@@ -195,14 +262,39 @@ func registerProjectsListTool(s *server.MCPServer, ctx *contextx.ServerContext) 
 			Resource: "projects",
 		}
 
-		ri := ctx.DynClient.Resource(gvr)
+		ri := ctx.DynClient.Resource(gvr).Namespace(metav1.NamespaceAll)
 
-		projects, err := ri.List(c, metav1.ListOptions{})
-		if err != nil {
-			return mcp.NewToolResultErrorFromErr("erro ao listar Projects", err), nil
+		var allItems []unstructured.Unstructured
+		var cont string
+
+		for {
+			opts := metav1.ListOptions{
+				Limit:    100,
+				Continue: cont,
+			}
+
+			list, err := ri.List(c, opts)
+			if err != nil {
+				return mcp.NewToolResultErrorFromErr("erro ao listar Projects", err), nil
+			}
+
+			allItems = append(allItems, list.Items...)
+
+			cont = list.GetContinue()
+			if cont == "" {
+				break
+			}
 		}
 
-		b, _ := projects.MarshalJSON()
+		listResult := &unstructured.UnstructuredList{
+			Items: allItems,
+		}
+
+		b, err := listResult.MarshalJSON()
+		if err != nil {
+			return mcp.NewToolResultErrorFromErr("erro ao serializar lista", err), nil
+		}
+
 		return mcp.NewToolResultText(string(b)), nil
 	})
 }
@@ -221,9 +313,7 @@ func registerDeploymentConfigsListTool(s *server.MCPServer, ctx *contextx.Server
 	)
 
 	s.AddTool(tool, func(c context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		in := DeploymentConfigsListInput{
-			Namespace: getStringArg(req, "namespace", ""),
-		}
+		namespace := getStringArg(req, "namespace", "")
 
 		gvr := schema.GroupVersionResource{
 			Group:    "apps.openshift.io",
@@ -232,18 +322,43 @@ func registerDeploymentConfigsListTool(s *server.MCPServer, ctx *contextx.Server
 		}
 
 		var ri dynamic.ResourceInterface
-		if in.Namespace != "" {
-			ri = ctx.DynClient.Resource(gvr).Namespace(in.Namespace)
+		if namespace != "" {
+			ri = ctx.DynClient.Resource(gvr).Namespace(namespace)
 		} else {
-			ri = ctx.DynClient.Resource(gvr)
+			ri = ctx.DynClient.Resource(gvr).Namespace(metav1.NamespaceAll)
 		}
 
-		dcs, err := ri.List(c, metav1.ListOptions{})
+		var allItems []unstructured.Unstructured
+		var cont string
+
+		for {
+			opts := metav1.ListOptions{
+				Limit:    100,
+				Continue: cont,
+			}
+
+			list, err := ri.List(c, opts)
+			if err != nil {
+				return mcp.NewToolResultErrorFromErr("erro ao listar DeploymentConfigs", err), nil
+			}
+
+			allItems = append(allItems, list.Items...)
+
+			cont = list.GetContinue()
+			if cont == "" {
+				break
+			}
+		}
+
+		listResult := &unstructured.UnstructuredList{
+			Items: allItems,
+		}
+
+		b, err := listResult.MarshalJSON()
 		if err != nil {
-			return mcp.NewToolResultErrorFromErr("erro ao listar DeploymentConfigs", err), nil
+			return mcp.NewToolResultErrorFromErr("erro ao serializar lista", err), nil
 		}
 
-		b, _ := dcs.MarshalJSON()
 		return mcp.NewToolResultText(string(b)), nil
 	})
 }

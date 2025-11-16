@@ -8,6 +8,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
@@ -21,7 +22,7 @@ func RegisterKubeVirtTools(s *server.MCPServer, ctx *contextx.ServerContext) {
 	registerVMRestartTool(s, ctx)
 }
 
-// helper para ler string de argumentos (CallToolRequest.Params.Arguments é map[string]any)
+// helper para ler argumentos string do MCP CallToolRequest
 func getStringArg(req mcp.CallToolRequest, key, def string) string {
 	args, ok := req.Params.Arguments.(map[string]any)
 	if !ok {
@@ -66,12 +67,37 @@ func registerVMsListTool(s *server.MCPServer, ctx *contextx.ServerContext) {
 			ri = ctx.DynClient.Resource(gvr).Namespace(metav1.NamespaceAll)
 		}
 
-		vms, err := ri.List(c, metav1.ListOptions{})
-		if err != nil {
-			return mcp.NewToolResultErrorFromErr("erro ao listar VMs", err), nil
+		var allItems []unstructured.Unstructured
+		var cont string
+
+		for {
+			opts := metav1.ListOptions{
+				Limit:    100,
+				Continue: cont,
+			}
+
+			list, err := ri.List(c, opts)
+			if err != nil {
+				return mcp.NewToolResultErrorFromErr("erro ao listar VMs", err), nil
+			}
+
+			allItems = append(allItems, list.Items...)
+
+			cont = list.GetContinue()
+			if cont == "" {
+				break
+			}
 		}
 
-		b, _ := vms.MarshalJSON()
+		listResult := &unstructured.UnstructuredList{
+			Items: allItems,
+		}
+
+		b, err := listResult.MarshalJSON()
+		if err != nil {
+			return mcp.NewToolResultErrorFromErr("erro ao serializar lista", err), nil
+		}
+
 		return mcp.NewToolResultText(string(b)), nil
 	})
 }

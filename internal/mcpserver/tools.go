@@ -207,7 +207,6 @@ func registerResourcesGetTool(s *server.MCPServer, ctx *contextx.ServerContext) 
 // ---------- resources_apply ----------
 
 type ResourcesApplyInput struct {
-	// Para simplicidade, vamos aceitar os campos básicos como argumentos
 	APIVersion string                 `json:"apiVersion"`
 	Kind       string                 `json:"kind"`
 	Namespace  string                 `json:"namespace,omitempty"`
@@ -225,7 +224,6 @@ func registerResourcesApplyTool(s *server.MCPServer, ctx *contextx.ServerContext
 		mcp.WithString("namespace", mcp.Description("Namespace (opcional).")),
 		mcp.WithString("name", mcp.Required(), mcp.Description("Nome do recurso.")),
 		mcp.WithString("resource", mcp.Required(), mcp.Description("Nome plural (GVR) do recurso.")),
-		// object virá como arguments["object"], tratado manualmente
 	)
 
 	s.AddTool(tool, func(c context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {

@@ -14,7 +14,6 @@ func NewServer(name, version string, kube *kubernetes.Clientset, dyn dynamic.Int
 	s := server.NewMCPServer(
 		name,
 		version,
-		// sem WithTools para v0.43.0; usamos AddTool diretamente nos registradores
 	)
 
 	ctx := &contextx.ServerContext{
@@ -22,9 +21,7 @@ func NewServer(name, version string, kube *kubernetes.Clientset, dyn dynamic.Int
 		DynClient:  dyn,
 	}
 
-	// tools genéricas
 	RegisterCoreTools(s, ctx)
-	// toolsets específicos
 	openshift.RegisterOpenShiftTools(s, ctx)
 	kubevirt.RegisterKubeVirtTools(s, ctx)
 
