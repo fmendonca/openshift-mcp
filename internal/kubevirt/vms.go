@@ -63,7 +63,7 @@ func registerVMsListTool(s *server.MCPServer, ctx *contextx.ServerContext) {
 		if in.Namespace != "" {
 			ri = ctx.DynClient.Resource(gvr).Namespace(in.Namespace)
 		} else {
-			ri = ctx.DynClient.Resource(gvr)
+			ri = ctx.DynClient.Resource(gvr).Namespace(metav1.NamespaceAll)
 		}
 
 		vms, err := ri.List(c, metav1.ListOptions{})
