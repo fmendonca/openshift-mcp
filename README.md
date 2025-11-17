@@ -19,3 +19,19 @@ Model Context Protocol (MCP) server for interacting with OpenShift and Kubernete
 
 ## Installation
 
+
+
+## Example to Run
+```bash
+MCP_TRANSPORT=stdio ./openshift-mcp
+```
+```bash
+MCP_TRANSPORT=http MCP_HTTP_ADDR=":8080" ./openshift-mcp
+```
+
+## Variable to run
+
+ - **MCP_TRANSPORT=stdio|http**
+
+### Option stdio run local with Agent IA
+### Option http run on cluster and receive instruction by api
