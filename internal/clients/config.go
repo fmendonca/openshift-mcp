@@ -6,20 +6,17 @@ import (
 )
 
 func getKubeConfig() (*rest.Config, error) {
-	// Try in-cluster config first
-	config, err := rest.InClusterConfig()
-	if err == nil {
-		return config, nil
+	if cfg, err := rest.InClusterConfig(); err == nil {
+		return cfg, nil
 	}
 
-	// Fallback to kubeconfig file
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	configOverrides := &clientcmd.ConfigOverrides{}
+	overrides := &clientcmd.ConfigOverrides{}
 
-	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		loadingRules,
-		configOverrides,
+		overrides,
 	)
 
-	return kubeConfig.ClientConfig()
+	return clientConfig.ClientConfig()
 }

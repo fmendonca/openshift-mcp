@@ -1,33 +1,37 @@
+// internal/resources/cluster/register.go
 package cluster
 
 import (
 	"github.com/fmendonca/openshift-mcp/internal/clients"
-	mcpserver "github.com/fmendonca/openshift-mcp/internal/server"
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 )
 
-func RegisterResources(srv *mcpserver.MCPServer, c *clients.Clients) {
-	// Informações gerais do cluster (versão, API groups, etc.)
-	srv.AddResource(&mcp.Resource{
-		URI:         "cluster://info",
-		Name:        "Cluster Information",
-		Description: "Kubernetes/OpenShift cluster version and basic info",
-		MimeType:    "application/json",
-	}, newClusterInfoHandler(c))
+func RegisterResources(srv *server.MCPServer, c *clients.Clients) {
+	// cluster://info
+	infoRes := mcp.NewResource(
+		"cluster://info",
+		"Cluster Information",
+		mcp.WithResourceDescription("Kubernetes/OpenShift cluster version and basic info"),
+		mcp.WithMIMEType("application/json"),
+	)
+	srv.AddResource(infoRes, newClusterInfoHandler(c))
 
-	// Versão do OpenShift (se disponível)
-	srv.AddResource(&mcp.Resource{
-		URI:         "cluster://openshift/version",
-		Name:        "OpenShift Version",
-		Description: "OpenShift cluster version and channel (if available)",
-		MimeType:    "application/json",
-	}, newOpenShiftVersionHandler(c))
+	// cluster://openshift/version
+	verRes := mcp.NewResource(
+		"cluster://openshift/version",
+		"OpenShift Version",
+		mcp.WithResourceDescription("OpenShift cluster version and channel (if available)"),
+		mcp.WithMIMEType("application/json"),
+	)
+	srv.AddResource(verRes, newOpenShiftVersionHandler(c))
 
-	// API groups disponíveis
-	srv.AddResource(&mcp.Resource{
-		URI:         "cluster://apigroups",
-		Name:        "API Groups",
-		Description: "List of available API groups in the cluster",
-		MimeType:    "application/json",
-	}, newAPIGroupsHandler(c))
+	// cluster://apigroups
+	groupsRes := mcp.NewResource(
+		"cluster://apigroups",
+		"API Groups",
+		mcp.WithResourceDescription("List of available API groups in the cluster"),
+		mcp.WithMIMEType("application/json"),
+	)
+	srv.AddResource(groupsRes, newAPIGroupsHandler(c))
 }

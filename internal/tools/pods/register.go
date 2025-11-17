@@ -2,127 +2,132 @@ package pods
 
 import (
 	"github.com/fmendonca/openshift-mcp/internal/clients"
-	"github.com/fmendonca/openshift-mcp/internal/server"
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 )
 
-func RegisterTools(srv *server.MCPServer, clients *clients.Clients) {
-	srv.AddTool(&mcp.Tool{
-		Name:        "list_pods",
-		Description: "List all pods in a namespace or across all namespaces",
-		InputSchema: mcp.ToolInputSchema{
-			Type: "object",
-			Properties: map[string]interface{}{
-				"namespace": map[string]interface{}{
+func RegisterTools(srv *server.MCPServer, c *clients.Clients) {
+	list := mcp.NewTool(
+		"list_pods",
+		"List all pods in a namespace or across all namespaces",
+		mcp.WithInputSchema(map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"namespace": map[string]any{
 					"type":        "string",
 					"description": "Namespace to list pods from (empty for all namespaces)",
 				},
-				"labelSelector": map[string]interface{}{
+				"labelSelector": map[string]any{
 					"type":        "string",
-					"description": "Label selector to filter pods (e.g., 'app=nginx')",
+					"description": "Label selector to filter pods",
 				},
 			},
-		},
-	}, newListPodsHandler(clients))
+		}),
+	)
+	srv.AddTool(list, newListPodsHandler(c))
 
-	srv.AddTool(&mcp.Tool{
-		Name:        "get_pod",
-		Description: "Get detailed information about a specific pod",
-		InputSchema: mcp.ToolInputSchema{
-			Type: "object",
-			Properties: map[string]interface{}{
-				"name": map[string]interface{}{
+	get := mcp.NewTool(
+		"get_pod",
+		"Get detailed information about a specific pod",
+		mcp.WithInputSchema(map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"name": map[string]any{
 					"type":        "string",
 					"description": "Name of the pod",
 				},
-				"namespace": map[string]interface{}{
+				"namespace": map[string]any{
 					"type":        "string",
 					"description": "Namespace of the pod",
 				},
 			},
-			Required: []string{"name", "namespace"},
-		},
-	}, newGetPodHandler(clients))
+			"required": []string{"name", "namespace"},
+		}),
+	)
+	srv.AddTool(get, newGetPodHandler(c))
 
-	srv.AddTool(&mcp.Tool{
-		Name:        "get_pod_logs",
-		Description: "Get logs from a pod container",
-		InputSchema: mcp.ToolInputSchema{
-			Type: "object",
-			Properties: map[string]interface{}{
-				"name": map[string]interface{}{
+	logs := mcp.NewTool(
+		"get_pod_logs",
+		"Get logs from a pod container",
+		mcp.WithInputSchema(map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"name": map[string]any{
 					"type":        "string",
 					"description": "Name of the pod",
 				},
-				"namespace": map[string]interface{}{
+				"namespace": map[string]any{
 					"type":        "string",
 					"description": "Namespace of the pod",
 				},
-				"container": map[string]interface{}{
+				"container": map[string]any{
 					"type":        "string",
-					"description": "Container name (optional, first container if not specified)",
+					"description": "Container name (optional, first container if omitted)",
 				},
-				"tailLines": map[string]interface{}{
+				"tailLines": map[string]any{
 					"type":        "integer",
-					"description": "Number of lines to retrieve from the end",
+					"description": "Number of log lines from the end",
 					"default":     100,
 				},
-				"previous": map[string]interface{}{
+				"previous": map[string]any{
 					"type":        "boolean",
 					"description": "Get logs from previous container instance",
 					"default":     false,
 				},
 			},
-			Required: []string{"name", "namespace"},
-		},
-	}, newGetPodLogsHandler(clients))
+			"required": []string{"name", "namespace"},
+		}),
+	)
+	srv.AddTool(logs, newGetPodLogsHandler(c))
 
-	srv.AddTool(&mcp.Tool{
-		Name:        "delete_pod",
-		Description: "Delete a specific pod",
-		InputSchema: mcp.ToolInputSchema{
-			Type: "object",
-			Properties: map[string]interface{}{
-				"name": map[string]interface{}{
+	del := mcp.NewTool(
+		"delete_pod",
+		"Delete a specific pod",
+		mcp.WithInputSchema(map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"name": map[string]any{
 					"type":        "string",
-					"description": "Name of the pod to delete",
+					"description": "Name of the pod",
 				},
-				"namespace": map[string]interface{}{
+				"namespace": map[string]any{
 					"type":        "string",
 					"description": "Namespace of the pod",
 				},
 			},
-			Required: []string{"name", "namespace"},
-		},
-	}, newDeletePodHandler(clients))
+			"required": []string{"name", "namespace"},
+		}),
+	)
+	srv.AddTool(del, newDeletePodHandler(c))
 
-	srv.AddTool(&mcp.Tool{
-		Name:        "exec_pod",
-		Description: "Execute a command in a pod container",
-		InputSchema: mcp.ToolInputSchema{
-			Type: "object",
-			Properties: map[string]interface{}{
-				"name": map[string]interface{}{
+	execTool := mcp.NewTool(
+		"exec_pod",
+		"Execute a command in a pod container",
+		mcp.WithInputSchema(map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"name": map[string]any{
 					"type":        "string",
 					"description": "Name of the pod",
 				},
-				"namespace": map[string]interface{}{
+				"namespace": map[string]any{
 					"type":        "string",
 					"description": "Namespace of the pod",
 				},
-				"container": map[string]interface{}{
+				"container": map[string]any{
 					"type":        "string",
 					"description": "Container name (optional)",
 				},
-				"command": map[string]interface{}{
+				"command": map[string]any{
 					"type":        "array",
-					"description": "Command to execute as array of strings",
-					"items": map[string]interface{}{
+					"description": "Command to execute (array of strings)",
+					"items": map[string]any{
 						"type": "string",
 					},
 				},
 			},
-			Required: []string{"name", "namespace", "command"},
-		},
-	}, newExecPodHandler(clients))
+			"required": []string{"name", "namespace", "command"},
+		}),
+	)
+	srv.AddTool(execTool, newExecPodHandler(c))
 }

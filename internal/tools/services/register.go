@@ -1,43 +1,47 @@
-package services
+// internal/tools/services/register.go
 package services
 
 import (
-	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/fmendonca/openshift-mcp/internal/clients"
-	"github.com/fmendonca/openshift-mcp/internal/server"
+	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 )
 
-func RegisterTools(srv *server.MCPServer, clients *clients.Clients) {
-	srv.AddTool(&mcp.Tool{
-		Name:        "list_services",
-		Description: "List all services in a namespace or across all namespaces",
-		InputSchema: mcp.ToolInputSchema{
-			Type: "object",
-			Properties: map[string]interface{}{
-				"namespace": map[string]interface{}{
+func RegisterTools(srv *server.MCPServer, c *clients.Clients) {
+	// list_services
+	listTool := mcp.NewTool(
+		"list_services",
+		"List all services in a namespace or across all namespaces",
+		mcp.WithInputSchema(map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"namespace": map[string]any{
 					"type":        "string",
-					"description": "Namespace to list services from",
+					"description": "Namespace to list services from (empty for all namespaces)",
 				},
 			},
-		},
-	}, newListServicesHandler(clients))
+		}),
+	)
+	srv.AddTool(listTool, newListServicesHandler(c))
 
-	srv.AddTool(&mcp.Tool{
-		Name:        "get_service",
-		Description: "Get detailed information about a specific service",
-		InputSchema: mcp.ToolInputSchema{
-			Type: "object",
-			Properties: map[string]interface{}{
-				"name": map[string]interface{}{
+	// get_service
+	getTool := mcp.NewTool(
+		"get_service",
+		"Get detailed information about a specific Service",
+		mcp.WithInputSchema(map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"name": map[string]any{
 					"type":        "string",
-					"description": "Name of the service",
+					"description": "Name of the Service",
 				},
-				"namespace": map[string]interface{}{
+				"namespace": map[string]any{
 					"type":        "string",
-					"description": "Namespace of the service",
+					"description": "Namespace of the Service",
 				},
 			},
-			Required: []string{"name", "namespace"},
-		},
-	}, newGetServiceHandler(clients))
+			"required": []string{"name", "namespace"},
+		}),
+	)
+	srv.AddTool(getTool, newGetServiceHandler(c))
 }

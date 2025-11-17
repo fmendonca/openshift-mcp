@@ -1,27 +1,28 @@
-package namespace
+// internal/resources/namespace/register.go
 package namespace
 
 import (
-    "github.com/mark3labs/mcp-go/mcp"
-    mcpserver "github.com/fmendonca/openshift-mcp/internal/server"
-    "github.com/fmendonca/openshift-mcp/internal/clients"
+	"github.com/fmendonca/openshift-mcp/internal/clients"
+	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 )
 
-func RegisterResources(srv *mcpserver.MCPServer, c *clients.Clients) {
-    // Lista de namespaces / projetos
-    srv.AddResource(&mcp.Resource{
-        URI:         "namespaces://all",
-        Name:        "Namespaces List",
-        Description: "List all namespaces (and OpenShift projects if available)",
-        MimeType:    "application/json",
-    }, newNamespacesListHandler(c))
+func RegisterResources(srv *server.MCPServer, c *clients.Clients) {
+	// namespaces://all
+	nsList := mcp.NewResource(
+		"namespaces://all",
+		"Namespaces List",
+		mcp.WithResourceDescription("List all namespaces in the cluster"),
+		mcp.WithMIMEType("application/json"),
+	)
+	srv.AddResource(nsList, newNamespacesListHandler(c))
 
-    // Detalhes de um namespace específico (via query na URI)
-    // Ex: namespaces://detail?name=my-namespace
-    srv.AddResource(&mcp.Resource{
-        URI:         "namespaces://detail",
-        Name:        "Namespace Detail",
-        Description: "Detailed information for a single namespace",
-        MimeType:    "application/json",
-    }, newNamespaceDetailHandler(c))
+	// namespaces://detail?name=<ns>
+	nsDetail := mcp.NewResource(
+		"namespaces://detail",
+		"Namespace Detail",
+		mcp.WithResourceDescription("Detailed information for a single namespace (name query param)"),
+		mcp.WithMIMEType("application/json"),
+	)
+	srv.AddResource(nsDetail, newNamespaceDetailHandler(c))
 }

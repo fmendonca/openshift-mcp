@@ -8,11 +8,11 @@ import (
 	"github.com/fmendonca/openshift-mcp/internal/clients"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// newClusterInfoHandler: informações gerais do cluster Kubernetes.
 func newClusterInfoHandler(c *clients.Clients) server.ResourceHandlerFunc {
-	return func(ctx context.Context, uri string) (*mcp.ResourceResponse, error) {
+	return func(ctx context.Context, req mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 		sv, err := c.Kubernetes.Discovery().ServerVersion()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get server version: %w", err)
@@ -20,7 +20,7 @@ func newClusterInfoHandler(c *clients.Clients) server.ResourceHandlerFunc {
 
 		groups, err := c.Kubernetes.Discovery().ServerGroups()
 		if err != nil {
-			return nil, fmt.Errorf("failed to get server groups: %w", err)
+			return nil, fmt.Errorf("failed to get API groups: %w", err)
 		}
 
 		info := map[string]any{
@@ -28,9 +28,8 @@ func newClusterInfoHandler(c *clients.Clients) server.ResourceHandlerFunc {
 			"major":         sv.Major,
 			"minor":         sv.Minor,
 			"platform":      sv.Platform,
-			"buildDate":     sv.BuildDate,
-			"compiler":      sv.Compiler,
 			"goVersion":     sv.GoVersion,
+			"compiler":      sv.Compiler,
 			"apiGroupCount": len(groups.Groups),
 		}
 
@@ -39,50 +38,24 @@ func newClusterInfoHandler(c *clients.Clients) server.ResourceHandlerFunc {
 			return nil, err
 		}
 
-		return mcp.NewResourceResponseBytes("application/json", data), nil
+		return &mcp.ReadResourceResult{
+			Contents: []mcp.ResourceContent{
+				mcp.TextResourceContent{
+					URI:      req.Params.URI,
+					MIMEType: "application/json",
+					Text:     string(data),
+				},
+			},
+		}, nil
 	}
 }
 
+// newOpenShiftVersionHandler: por enquanto devolve um stub (sem usar openshift/client-go).
 func newOpenShiftVersionHandler(c *clients.Clients) server.ResourceHandlerFunc {
-	return func(ctx context.Context, uri string) (*mcp.ResourceResponse, error) {
-		// Para clusters Kubernetes puros, apenas retorna vazio.
-		if c.Config == nil {
-			empty := map[string]any{
-				"openshift": false,
-				"message":   "OpenShift config client not available",
-			}
-			data, _ := json.MarshalIndent(empty, "", "  ")
-			return mcp.NewResourceResponseBytes("application/json", data), nil
-		}
-
-		cv, err := c.Config.ConfigV1().ClusterVersions().Get(ctx, "version", metav1.GetOptions{})
-		if err != nil {
-			info := map[string]any{
-				"openshift": true,
-				"error":     err.Error(),
-			}
-			data, _ := json.MarshalIndent(info, "", "  ")
-			return mcp.NewResourceResponseBytes("application/json", data), nil
-		}
-
-		channel := cv.Spec.Channel
-		desired := cv.Status.Desired.Version
-
-		hist := []map[string]any{}
-		for _, h := range cv.Status.History {
-			hist = append(hist, map[string]any{
-				"version":  h.Version,
-				"state":    string(h.State),
-				"started":  h.StartedTime,
-				"verified": h.Verified,
-			})
-		}
-
+	return func(ctx context.Context, req mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 		info := map[string]any{
-			"openshift":      true,
-			"desiredVersion": desired,
-			"channel":        channel,
-			"history":        hist,
+			"openshift": false,
+			"message":   "OpenShift client not wired; only Kubernetes info is available.",
 		}
 
 		data, err := json.MarshalIndent(info, "", "  ")
@@ -90,12 +63,21 @@ func newOpenShiftVersionHandler(c *clients.Clients) server.ResourceHandlerFunc {
 			return nil, err
 		}
 
-		return mcp.NewResourceResponseBytes("application/json", data), nil
+		return &mcp.ReadResourceResult{
+			Contents: []mcp.ResourceContent{
+				mcp.TextResourceContent{
+					URI:      req.Params.URI,
+					MIMEType: "application/json",
+					Text:     string(data),
+				},
+			},
+		}, nil
 	}
 }
 
+// newAPIGroupsHandler: lista todos os API groups disponíveis no cluster.
 func newAPIGroupsHandler(c *clients.Clients) server.ResourceHandlerFunc {
-	return func(ctx context.Context, uri string) (*mcp.ResourceResponse, error) {
+	return func(ctx context.Context, req mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 		groups, err := c.Kubernetes.Discovery().ServerGroups()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get API groups: %w", err)
@@ -107,7 +89,7 @@ func newAPIGroupsHandler(c *clients.Clients) server.ResourceHandlerFunc {
 			Preferred string   `json:"preferredVersion,omitempty"`
 		}
 
-		list := []groupInfo{}
+		out := make([]groupInfo, 0, len(groups.Groups))
 		for _, g := range groups.Groups {
 			gi := groupInfo{Name: g.Name}
 			for _, v := range g.Versions {
@@ -116,14 +98,22 @@ func newAPIGroupsHandler(c *clients.Clients) server.ResourceHandlerFunc {
 			if g.PreferredVersion.Version != "" {
 				gi.Preferred = g.PreferredVersion.Version
 			}
-			list = append(list, gi)
+			out = append(out, gi)
 		}
 
-		data, err := json.MarshalIndent(list, "", "  ")
+		data, err := json.MarshalIndent(out, "", "  ")
 		if err != nil {
 			return nil, err
 		}
 
-		return mcp.NewResourceResponseBytes("application/json", data), nil
+		return &mcp.ReadResourceResult{
+			Contents: []mcp.ResourceContent{
+				mcp.TextResourceContent{
+					URI:      req.Params.URI,
+					MIMEType: "application/json",
+					Text:     string(data),
+				},
+			},
+		}, nil
 	}
 }

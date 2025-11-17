@@ -14,7 +14,7 @@ import (
 )
 
 func newNamespacesListHandler(c *clients.Clients) server.ResourceHandlerFunc {
-	return func(ctx context.Context, uri string) (*mcp.ResourceResponse, error) {
+	return func(ctx context.Context, req mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 		nsList, err := c.Kubernetes.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("failed to list namespaces: %w", err)
@@ -26,27 +26,33 @@ func newNamespacesListHandler(c *clients.Clients) server.ResourceHandlerFunc {
 			Labels map[string]string `json:"labels,omitempty"`
 		}
 
-		items := []nsInfo{}
+		out := make([]nsInfo, 0, len(nsList.Items))
 		for _, ns := range nsList.Items {
-			items = append(items, nsInfo{
+			out = append(out, nsInfo{
 				Name:   ns.Name,
 				Phase:  string(ns.Status.Phase),
 				Labels: ns.Labels,
 			})
 		}
 
-		data, err := json.MarshalIndent(items, "", "  ")
+		data, err := json.MarshalIndent(out, "", "  ")
 		if err != nil {
 			return nil, err
 		}
 
-		return mcp.NewResourceResponseBytes("application/json", data), nil
+		return &mcp.ReadResourceResult{
+			Contents: []mcp.ResourceContent{
+				mcp.TextResourceContent{
+					URI:      req.Params.URI,
+					MIMEType: "application/json",
+					Text:     string(data),
+				},
+			},
+		}, nil
 	}
 }
 
-// parseQuery extrai querystring de uma URI resource MCP simples
 func parseQuery(raw string) url.Values {
-	// exemplo uri: namespaces://detail?name=my-namespace
 	parts := strings.SplitN(raw, "?", 2)
 	if len(parts) != 2 {
 		return url.Values{}
@@ -56,29 +62,44 @@ func parseQuery(raw string) url.Values {
 }
 
 func newNamespaceDetailHandler(c *clients.Clients) server.ResourceHandlerFunc {
-	return func(ctx context.Context, uri string) (*mcp.ResourceResponse, error) {
-		q := parseQuery(uri)
+	return func(ctx context.Context, req mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+		q := parseQuery(req.Params.URI)
 		name := q.Get("name")
 		if name == "" {
-			// sem nome, retorna erro "lógico" via conteúdo
-			errBody := map[string]any{
+			body := map[string]any{
 				"error":  "missing namespace name",
 				"usage":  "namespaces://detail?name=<namespace>",
 				"status": "bad_request",
 			}
-			data, _ := json.MarshalIndent(errBody, "", "  ")
-			return mcp.NewResourceResponseBytes("application/json", data), nil
+			data, _ := json.MarshalIndent(body, "", "  ")
+			return &mcp.ReadResourceResult{
+				Contents: []mcp.ResourceContent{
+					mcp.TextResourceContent{
+						URI:      req.Params.URI,
+						MIMEType: "application/json",
+						Text:     string(data),
+					},
+				},
+			}, nil
 		}
 
 		ns, err := c.Kubernetes.CoreV1().Namespaces().Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
-			errBody := map[string]any{
+			body := map[string]any{
 				"error":  err.Error(),
 				"status": "not_found",
 				"name":   name,
 			}
-			data, _ := json.MarshalIndent(errBody, "", "  ")
-			return mcp.NewResourceResponseBytes("application/json", data), nil
+			data, _ := json.MarshalIndent(body, "", "  ")
+			return &mcp.ReadResourceResult{
+				Contents: []mcp.ResourceContent{
+					mcp.TextResourceContent{
+						URI:      req.Params.URI,
+						MIMEType: "application/json",
+						Text:     string(data),
+					},
+				},
+			}, nil
 		}
 
 		info := map[string]any{
@@ -93,6 +114,14 @@ func newNamespaceDetailHandler(c *clients.Clients) server.ResourceHandlerFunc {
 			return nil, err
 		}
 
-		return mcp.NewResourceResponseBytes("application/json", data), nil
+		return &mcp.ReadResourceResult{
+			Contents: []mcp.ResourceContent{
+				mcp.TextResourceContent{
+					URI:      req.Params.URI,
+					MIMEType: "application/json",
+					Text:     string(data),
+				},
+			},
+		}, nil
 	}
 }

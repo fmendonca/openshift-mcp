@@ -1,44 +1,49 @@
 package utils
 
-func GetStringArg(args map[string]interface{}, key, defaultValue string) string {
-	if val, ok := args[key]; ok && val != nil {
-		if str, ok := val.(string); ok {
-			return str
+func GetStringArg(args map[string]any, key, def string) string {
+	if v, ok := args[key]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			return s
 		}
 	}
-	return defaultValue
+	return def
 }
 
-func GetIntArg(args map[string]interface{}, key string, defaultValue int) int {
-	if val, ok := args[key]; ok && val != nil {
-		if num, ok := val.(float64); ok {
-			return int(num)
-		}
-		if num, ok := val.(int); ok {
-			return num
+func GetIntArg(args map[string]any, key string, def int) int {
+	if v, ok := args[key]; ok && v != nil {
+		switch t := v.(type) {
+		case int:
+			return t
+		case int32:
+			return int(t)
+		case int64:
+			return int(t)
+		case float64:
+			return int(t)
 		}
 	}
-	return defaultValue
+	return def
 }
 
-func GetBoolArg(args map[string]interface{}, key string, defaultValue bool) bool {
-	if val, ok := args[key]; ok && val != nil {
-		if b, ok := val.(bool); ok {
+func GetBoolArg(args map[string]any, key string, def bool) bool {
+	if v, ok := args[key]; ok && v != nil {
+		if b, ok := v.(bool); ok {
 			return b
 		}
 	}
-	return defaultValue
+	return def
 }
 
-func InterfaceSliceToStringSlice(slice interface{}) []string {
-	if s, ok := slice.([]interface{}); ok {
-		result := make([]string, len(s))
-		for i, v := range s {
-			if str, ok := v.(string); ok {
-				result[i] = str
-			}
-		}
-		return result
+func InterfaceSliceToStringSlice(val any) []string {
+	s, ok := val.([]any)
+	if !ok {
+		return nil
 	}
-	return []string{}
+	out := make([]string, 0, len(s))
+	for _, v := range s {
+		if str, ok := v.(string); ok {
+			out = append(out, str)
+		}
+	}
+	return out
 }
