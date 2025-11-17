@@ -37,7 +37,7 @@ func main() {
 	}
 
 	// Cria MCP server com suporte a tools e resources
-	srv := mcpserver.NewServer("openshift-k8s-mcp", "1.0.0")
+	srv := mcpserver.NewServer("openshift-mcp", "1.0.0")
 
 	// Registra TODOS os tools em um único lugar (pods, services, etc.)
 	handlers.RegisterAllTools(srv.Inner(), k8sClients)
